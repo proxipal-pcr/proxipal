@@ -10,6 +10,7 @@ Created on Fri Oct  3 18:00:24 2025
 ProxiPal Setup Script
 - Prepares app/ workspace directory structure
 - Copies developer/src/ProxiPal.py into app/python/ (if missing)
+- Copies developer/templates/* into app/templates/ (updates existing)
 - Detects dependencies from the copied script
 - Advises user on missing packages
 """
@@ -57,7 +58,7 @@ def create_structure(base_path: Path) -> Path:
     return app_path / "python" / "ProxiPal.py"
 
 # ------------------------------
-# Utilities: Import Detection
+# Utilities
 # ------------------------------
 def get_imports_from_file(file_path: Path):
     """
@@ -83,6 +84,22 @@ def detect_external_imports(file_path: Path):
     imports = get_imports_from_file(file_path)
     external = sorted([i for i in imports if i not in stdlib])
     return external
+
+def copy_templates(src_dir: Path, dest_dir: Path):
+    """
+    Copies all files from developer/templates/ into app/templates/.
+    Existing files are overwritten with latest versions.
+    """
+    if not src_dir.exists():
+        print(f"⚠️ No template source found at {src_dir}")
+        return
+    print(f"\n📂 Copying templates from {src_dir} to {dest_dir}")
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    for item in src_dir.iterdir():
+        if item.is_file():
+            shutil.copy2(item, dest_dir / item.name)
+            print(f"   📄 {item.name}")
+    print("✅ Templates copied successfully.")
 
 # ------------------------------
 # Dependency Checker
@@ -120,8 +137,9 @@ def main():
     answer = input(f"📁 Create or verify workspace here? ({cwd}) [Y/n]: ").strip().lower()
     base_path = cwd if answer in ("", "y", "yes") else Path(input("Enter target path: ").strip()).expanduser().resolve()
 
-    # Step 2: Create directory structure first (inside 'app/')
+    # Step 2: Create directory structure (inside 'app/')
     proxipal_file = create_structure(base_path)
+    app_path = base_path / "app"
 
     # Step 3: Copy ProxiPal.py from developer/src/ if needed
     repo_src = Path(__file__).parent / "developer" / "src" / "ProxiPal.py"
@@ -135,7 +153,12 @@ def main():
     else:
         print(f"\nℹ️ {proxipal_file.name} already exists in workspace; leaving it unchanged.")
 
-    # Step 4: Detect dependencies
+    # Step 4: Copy templates
+    templates_src = Path(__file__).parent / "developer" / "templates"
+    templates_dest = app_path / "templates"
+    copy_templates(templates_src, templates_dest)
+
+    # Step 5: Detect dependencies
     if proxipal_file.exists():
         print(f"\n📄 Inspecting imports from {proxipal_file}")
         required_packages = detect_external_imports(proxipal_file)
@@ -155,10 +178,10 @@ def main():
             "rdmlpython"
         ]
 
-    # Step 5: Check package availability
+    # Step 6: Check package availability
     check_dependencies(required_packages)
 
-    # Step 6: Print next steps
+    # Step 7: Print next steps
     print("✅ Setup complete.")
     print("➡️ Next steps:")
     print(f"   1. Navigate to: {proxipal_file.parent}")
