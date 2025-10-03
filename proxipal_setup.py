@@ -9,6 +9,7 @@ Created on Fri Oct  3 18:00:24 2025
 """
 ProxiPal Setup Script
 - Prepares workspace directory structure
+- Copies src/ProxiPal.py into workspace (if missing)
 - Detects dependencies from ProxiPal.py (if present)
 - Advises user on missing packages
 """
@@ -18,6 +19,7 @@ import sys
 import importlib
 import ast
 from pathlib import Path
+import shutil
 
 # ------------------------------
 # Directory Structure
@@ -31,10 +33,11 @@ EXPECTED_DIRS = [
     "templates"
 ]
 
-def create_structure(base_path: Path):
+def create_structure(base_path: Path) -> Path:
     """
     Creates the required workspace directory structure
     without overwriting or deleting existing data.
+    Returns path to workspace ProxiPal.py
     """
     print(f"\n🧱 Ensuring ProxiPal workspace at: {base_path.resolve()}")
     created, existing = [], []
@@ -49,7 +52,7 @@ def create_structure(base_path: Path):
         print(f"✅ Created: {', '.join(created)}")
     if existing:
         print(f"ℹ️ Already present: {', '.join(existing)}")
-    print("\n✨ Workspace is ready.")
+    print("✨ Workspace is ready.")
     return base_path / "python" / "ProxiPal.py"
 
 # ------------------------------
@@ -119,14 +122,25 @@ def main():
     # Step 2: Create directory structure first
     proxipal_file = create_structure(base_path)
 
-    # Step 3: Detect dependencies (if ProxiPal.py exists)
+    # Step 3: Copy ProxiPal.py from src/ if needed
+    repo_src = Path(__file__).parent / "src" / "ProxiPal.py"
+    if not proxipal_file.exists():
+        if repo_src.exists():
+            print(f"\n📄 Copying {repo_src.name} from repo to {proxipal_file}")
+            shutil.copy2(repo_src, proxipal_file)
+            print("✅ ProxiPal.py copied to workspace.")
+        else:
+            print(f"\n⚠️ No source file found at {repo_src}")
+    else:
+        print(f"\nℹ️ {proxipal_file.name} already exists in workspace; leaving it unchanged.")
+
+    # Step 4: Detect dependencies
     if proxipal_file.exists():
-        print(f"\n📄 Found {proxipal_file.name}, inspecting imports...")
+        print(f"\n📄 Inspecting imports from {proxipal_file}")
         required_packages = detect_external_imports(proxipal_file)
         print(f"🧩 Detected external imports: {', '.join(required_packages)}")
     else:
-        print(f"\n⚠️ No {proxipal_file.name} found in {proxipal_file.parent}")
-        print("   Using default dependency list.")
+        print(f"\n⚠️ Still no {proxipal_file.name}; using default dependency list.")
         required_packages = [
             "pandas",
             "numpy",
@@ -140,14 +154,14 @@ def main():
             "rdmlpython"
         ]
 
-    # Step 4: Check package availability
+    # Step 5: Check package availability
     check_dependencies(required_packages)
 
-    # Step 5: Print next steps
+    # Step 6: Print next steps
     print("✅ Setup complete.")
-    print(f"➡️ Next steps:")
-    print(f"   1. Add or verify your ProxiPal.py in: {proxipal_file.parent}")
-    print(f"   2. Run it with: python {proxipal_file.name}")
+    print("➡️ Next steps:")
+    print(f"   1. Navigate to: {proxipal_file.parent}")
+    print(f"   2. Run with:    python {proxipal_file.name}")
 
 # ------------------------------
 # Entrypoint
