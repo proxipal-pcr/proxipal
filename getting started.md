@@ -136,13 +136,3 @@ For questions or issues, please open an [Issue](https://github.com/proxipal-pcr/
 © 2025 ProxiPal Project
 
 ````
-
-✅ Copy everything above  
-✅ Paste it into `C:\Users\smith.j\MEGA\MEGAsync\ProxiPal-git\proxipal\GETTING_STARTED.md`  
-✅ Commit & push:
-
-```bash
-git add GETTING_STARTED.md
-git commit -m "Add complete Getting Started guide"
-git push origin main
-````
