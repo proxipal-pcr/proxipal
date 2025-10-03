@@ -1,4 +1,4 @@
-![alt text](https://github.com/jeffsmith8/ProxiPal/blob/main/Logo_Small.JPG?raw=true)
+![alt text](https://github.com/proxipal-pcr/proxipal/blob/main/assets/Logo_Small.JPG)
 
 # ProxiPal
 A package to support PLA development, early stage validation studies and assay kit production
