@@ -8,9 +8,9 @@ Created on Fri Oct  3 18:00:24 2025
 #!/usr/bin/env python3
 """
 ProxiPal Setup Script
-- Prepares workspace directory structure
-- Copies src/ProxiPal.py into workspace (if missing)
-- Detects dependencies from ProxiPal.py (if present)
+- Prepares app/ workspace directory structure
+- Copies developer/src/ProxiPal.py into app/python/ (if missing)
+- Detects dependencies from the copied script
 - Advises user on missing packages
 """
 
@@ -36,13 +36,14 @@ EXPECTED_DIRS = [
 def create_structure(base_path: Path) -> Path:
     """
     Creates the required workspace directory structure
-    without overwriting or deleting existing data.
+    inside 'app/' folder without overwriting or deleting existing data.
     Returns path to workspace ProxiPal.py
     """
-    print(f"\n🧱 Ensuring ProxiPal workspace at: {base_path.resolve()}")
+    app_path = base_path / "app"
+    print(f"\n🧱 Ensuring ProxiPal workspace at: {app_path.resolve()}")
     created, existing = [], []
     for folder in EXPECTED_DIRS:
-        folder_path = base_path / folder
+        folder_path = app_path / folder
         if folder_path.exists():
             existing.append(folder)
         else:
@@ -53,7 +54,7 @@ def create_structure(base_path: Path) -> Path:
     if existing:
         print(f"ℹ️ Already present: {', '.join(existing)}")
     print("✨ Workspace is ready.")
-    return base_path / "python" / "ProxiPal.py"
+    return app_path / "python" / "ProxiPal.py"
 
 # ------------------------------
 # Utilities: Import Detection
@@ -119,14 +120,14 @@ def main():
     answer = input(f"📁 Create or verify workspace here? ({cwd}) [Y/n]: ").strip().lower()
     base_path = cwd if answer in ("", "y", "yes") else Path(input("Enter target path: ").strip()).expanduser().resolve()
 
-    # Step 2: Create directory structure first
+    # Step 2: Create directory structure first (inside 'app/')
     proxipal_file = create_structure(base_path)
 
-    # Step 3: Copy ProxiPal.py from src/ if needed
-    repo_src = Path(__file__).parent / "src" / "ProxiPal.py"
+    # Step 3: Copy ProxiPal.py from developer/src/ if needed
+    repo_src = Path(__file__).parent / "developer" / "src" / "ProxiPal.py"
     if not proxipal_file.exists():
         if repo_src.exists():
-            print(f"\n📄 Copying {repo_src.name} from repo to {proxipal_file}")
+            print(f"\n📄 Copying {repo_src.name} from {repo_src.parent} to {proxipal_file.parent}")
             shutil.copy2(repo_src, proxipal_file)
             print("✅ ProxiPal.py copied to workspace.")
         else:
