@@ -1,0 +1,5 @@
+In /data
+1 experiment or assay = 1 folder
+
+For intuitive data management among users it is suggested:
+Prefix = reverse date, i.e. 230118 = 18/01/2023, where the date should reflect folder creation
