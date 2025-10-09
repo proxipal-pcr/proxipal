@@ -2,13 +2,7 @@
 Raw_File,,241220_NfLPLADx_Plasma_demo,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 Operator(s),,Jeff,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 Kit_#,,#004,,,,,,,,,,,,,,,,,,,,plate_plan,,,,,,,,,,,,,,experiment_plan,,,,,,,
-well,position,eds_id,target,ct,tm,threshold,sample_id,tube_id,rep_id,dilution,var_1,var_2,var_3,var_4,"usr_
-std","usr_
-raw_ng/L","usr_
-mean_ng/L","usr_
-recovery","usr_
-ignore","usr_
-comments",,Labels,1,2,3,4,5,6,7,8,9,10,11,12,,default xlsx template password: admin,,,,,,,
+well,position,eds_id,target,ct,tm,threshold,sample_id,tube_id,rep_id,dilution,var_1,var_2,var_3,var_4,usr_std,usr_raw_ng/L,usr_mean_ng/L,usr_recovery,usr_ignore,usr_comments,,Labels,1,2,3,4,5,6,7,8,9,10,11,12,,default xlsx template password: admin,,,,,,,
 1,A1,QC,NfL,21.270,80.7,0.1,NFL-QC-H,,1,10,1,0,0,0,1,95.56,79.25,,0,,,A,NFL-QC-H,NFL-QC-H,NFL-164,NFL-164,std1[2000]_progen#62008,std1[2000]_progen#62008,NFL-172,NFL-172,NFL-180,NFL-180,NFL-188,unused,,"Royal Melbourne Hospital, lithium-heparin plasma",,,,,,,
 2,A2,QC,NfL,21.879,80.7,0.1,NFL-QC-H,,1,10,1,0,0,0,1,62.94,79.25,,0,,,B,NFL-QC-L,NFL-QC-L,NFL-165,NFL-165,std1[400]_progen#62008,std1[400]_progen#62008,NFL-173,NFL-173,NFL-181,NFL-181,NFL-188,unused,",","Samples 159 - 189, 10x dilution",,,,,,,
 3,A3,sample,NfL,21.475,80.7,0.1,NFL-164,,2,10,1,0,0,0,1,83.03,83.29,,0,,,C,NFL-QC-M,NFL-QC-M,NFL-166,NFL-166,std1[80]_progen#62008,std1[80]_progen#62008,NFL-174,NFL-174,NFL-182,NFL-182,NFL-189,unused,,Standard SoP,,,,,,,
