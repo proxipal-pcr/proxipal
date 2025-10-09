@@ -2144,31 +2144,82 @@ def join_unique(x):
 def add_py_known_conc(df):
     """
     Add concentration-related columns to the metadata DataFrame.
+
+    This version:
+    - Extracts concentrations from sample_id strings like 'std1[100]_...'
+    - Prints a warning for non-string or missing sample_id values, reporting their index and value
+    - Suggests that users assign text-based sample_id values (not numeric or NaN)
+    - Keeps py_known_conc == 0 (does NOT replace with NaN)
+    - Only replaces zeros with NaN when computing log10 (to avoid -inf)
     """
     df = df.copy()
-    
+
     # Add py_known_conc column if not present
     if 'py_known_conc' not in df.columns:
         conc_list = []
         pattern_std = r"std\d+\[(.*?)\]_"
-        for s in df['sample_id'].tolist():
+
+        for idx, s in enumerate(df['sample_id']):
+            # Skip NaN or non-string sample_id values, report them
+            if pd.isna(s) or not isinstance(s, str):
+                print(f"⚠️  Warning: Row {idx} has invalid sample_id = {s!r}. "
+                      f"Each sample_id should be a text label, not numeric or N/A.")
+                conc_list.append(np.nan)
+                continue
+
+            # Try to extract concentration value from string pattern
             match = re.search(pattern_std, s)
             if match:
-                conc_list.append(float(match.group(1)))
+                try:
+                    conc_list.append(float(match.group(1)))
+                except ValueError:
+                    print(f"⚠️  Warning: Row {idx} sample_id = {s!r} "
+                          f"contains a non-numeric concentration inside brackets.")
+                    conc_list.append(np.nan)
             else:
                 conc_list.append(np.nan)
-        
+
         df['py_known_conc'] = conc_list
-    
-    # Add py_known_conc_log10 column if not present    
+
+    # Add py_known_conc_log10 column if not present
     if 'py_known_conc_log10' not in df.columns:
-        # Create a temporary series for log transformation, keeping original py_known_conc intact
         temp_conc = df['py_known_conc'].copy()
-        temp_conc = temp_conc.replace({0: np.nan})  # Only replace zeros for log calculation
+        temp_conc = temp_conc.replace({0: np.nan})  # avoid log10(0)
         log10_py_known_conc = np.log10(temp_conc)
-        df['py_known_conc_log10'] = np.where(np.isinf(log10_py_known_conc), np.nan, log10_py_known_conc)
+        df['py_known_conc_log10'] = np.where(np.isinf(log10_py_known_conc),
+                                             np.nan, log10_py_known_conc)
 
     return df
+
+
+# def add_py_known_conc(df):
+#     """
+#     Add concentration-related columns to the metadata DataFrame.
+#     """
+#     df = df.copy()
+    
+#     # Add py_known_conc column if not present
+#     if 'py_known_conc' not in df.columns:
+#         conc_list = []
+#         pattern_std = r"std\d+\[(.*?)\]_"
+#         for s in df['sample_id'].tolist():
+#             match = re.search(pattern_std, s)
+#             if match:
+#                 conc_list.append(float(match.group(1)))
+#             else:
+#                 conc_list.append(np.nan)
+        
+#         df['py_known_conc'] = conc_list
+    
+#     # Add py_known_conc_log10 column if not present    
+#     if 'py_known_conc_log10' not in df.columns:
+#         # Create a temporary series for log transformation, keeping original py_known_conc intact
+#         temp_conc = df['py_known_conc'].copy()
+#         temp_conc = temp_conc.replace({0: np.nan})  # Only replace zeros for log calculation
+#         log10_py_known_conc = np.log10(temp_conc)
+#         df['py_known_conc_log10'] = np.where(np.isinf(log10_py_known_conc), np.nan, log10_py_known_conc)
+
+#     return df
 
 
 # def extract_experiment_tables(df, filepath_csv, quant_model='SLR', threshold_type='ct', 

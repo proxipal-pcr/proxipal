@@ -1,0 +1,33 @@
+filepath_txt: 241220_NfLPLADx_Plasma_demo/251006/241220_NfLPLADx_Plasma_demo.txt
+expt_folder_txt: 241220_NfLPLADx_Plasma_demo
+analysis_folder_txt: 251006
+filename_txt: 241220_NfLPLADx_Plasma_demo.txt
+Barcode: 
+BlockType: Fast 96-Well Block (0.1mL)
+CalibrationBackgroundisexpired: No
+CalibrationBackgroundperformedon: 2024-11-06 00:00:00
+CalibrationPureDyeROXisexpired: No
+CalibrationPureDyeROXperformedon: 2024-11-06 00:00:00
+CalibrationPureDyeSYBRisexpired: No
+CalibrationPureDyeSYBRperformedon: 2024-11-06 00:00:00
+CalibrationROIisexpired: No
+CalibrationROIperformedon: 2024-11-06 00:00:00
+CalibrationUniformityisexpired: No
+CalibrationUniformityperformedon: 2024-11-06 00:00:00
+Chemistry: SYBR_GREEN
+Comment: 
+DateCreated: 2024-12-20 16:27:52
+DateModified: 2025-10-06 10:27:17
+ExperimentFileName: C:\Users\smith.j\OneDrive - wehi.edu.au\Documents\CFHAC_ProxiPal\ProxiPal\data\241220_e104_jeff_ClinValP6\251006\241220_NfLPLADx_Plasma.eds
+ExperimentName: 241220_NfL_demo
+ExperimentRunStartTime: 2024-12-20 16:30:16
+ExperimentRunStopTime: 2024-12-20 17:40:10
+ExperimentType: Comparative Ct
+InstrumentName: 285881442
+InstrumentSerialNumber: 285881442
+InstrumentType: QuantStudio 12K Flex
+PassiveReference: ROX
+QuantificationCycleMethod: Ct
+SignalSmoothingOn: true
+Stage/CyclewhereAnalysisisperformed: Stage 2, Step 2
+UserName: NA
