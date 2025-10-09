@@ -1598,15 +1598,18 @@ def create_master_table(match_type: str = 'TS') -> dict:
             
 #     return None
 
-def batch_py_metatables(eds2txt_match_dict: dict, eds2csv_match_dict: dict, df_pivot_slice: str = None) -> None:
+def batch_py_metatables(eds2txt_match_dict: dict, eds2csv_match_dict: dict, 
+                        df_pivot_slice: str = None, calc_all_models: bool = True) -> None:
     """
     Given two dictionaries that match EDS files to txt and csv files respectively, this function
     processes each matched file set in a batch.
-    :param eds2txt_match_dict: dictionary that maps EDS files to txt files.
-    :param eds2csv_match_dict: dictionary that maps EDS files to csv files.
-    :param df_pivot_slice: optional string to specify which slice of df_pivot to process.
+    eds2txt_match_dict: dictionary that maps EDS files to txt files.
+    eds2csv_match_dict: dictionary that maps EDS files to csv files.
+    df_pivot_slice: optional string to specify which slice of df_pivot to process.
                          Format: 'start:end' or 'start:' (e.g., '15:18' or '15:')
                          If None, processes all rows.
+    calc_all_models: Will fit all models from calc_py_metatable_all_models() against many conditions. 
+    WARNING. These calculations can lead to vey long processing times ~10min per experiment.
     
     The function iterates over each file set, checks if the txt and csv files exist for the path_key,
     and if they do, it tries to create a data metatable and calculate standard deviations using linear regression.
@@ -1641,9 +1644,11 @@ def batch_py_metatables(eds2txt_match_dict: dict, eds2csv_match_dict: dict, df_p
                 path_metatable = path_csv.parent / 'exports/metatable.csv'
                 metatable = pd.read_csv(path_metatable, low_memory = False)
                 
-                # Suppress print statements from calc_py_metatable_all_models
-                with contextlib.redirect_stdout(io.StringIO()):
-                    calc_py_metatable_all_models(metatable, rdml_check=True, export=True)
+                if calc_all_models:
+                    # Suppress print statements from calc_py_metatable_all_models
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        calc_py_metatable_all_models(metatable, rdml_check=True, export=True)
+                        
                 print(path, 'processed')
             except FileNotFoundError:
                 # If processing fails, print an error message
@@ -5487,158 +5492,358 @@ def calc_py_metatable_all_models(metatable: pd.DataFrame, rdml_check: bool = Tru
         return py_metatable
 
 
+# def create_plate_visualization(df, plate_format=96, palette=None, font_size=8, 
+#                              value1=('rep_id', 'Rep: '), value2=('dilution', 'Dil: '),
+#                              heatmap=False, heatmap_palette="vlag", heatmap_value=('ct', 'Cycle: '),
+#                              cmap_exclusions=None):
+#     """
+#     Create a visualization of a microplate with sample information.
+#     Colors cells based on rep_id for non-standard/QC wells or as a heatmap based on a specified value.
+    
+#     Args:
+#         df: DataFrame with columns sample_id, position, rep_id, dilution
+#         plate_format: Integer specifying total wells (default: 96)
+#                      Supported formats: 6, 12, 24, 48, 96, 384, 1536
+#         palette: List of hex color codes or None (default: uses Set2 palette)
+#                 e.g., ['#1f77b4', '#ff7f0e', '#2ca02c', ...]
+#         font_size: Base font size for text (default: 8)
+#         value1: Tuple of (column_name, label) for first displayed value (default: ('rep_id', 'Rep: '))
+#         value2: Tuple of (column_name, label) for second displayed value (default: ('dilution', 'Dil: '))
+#         heatmap: Boolean to enable heatmap mode (default: False)
+#         heatmap_palette: String specifying seaborn color palette for heatmap (default: "vlag")
+#         heatmap_value: Tuple of (column_name, label) for heatmap value (default: ('ct', 'Cycle: '))
+#         cmap_exclusions: List of well positions to exclude from color mapping and heatmap scaling (default: None)
+#                         e.g., ['A1', 'H12']
+#     """
+#     import seaborn as sns
+#     import matplotlib.pyplot as plt
+#     import numpy as np
+    
+#     # Define plate dimensions for common formats
+#     plate_dimensions = {
+#         6: (2, 3),
+#         12: (3, 4),
+#         24: (4, 6),
+#         48: (6, 8),
+#         96: (8, 12),
+#         384: (16, 24),
+#         1536: (32, 48)
+#     }
+    
+#     if plate_format not in plate_dimensions:
+#         raise ValueError(f"Unsupported plate format: {plate_format}. Must be one of {list(plate_dimensions.keys())}")
+    
+#     # Validate that the requested columns exist in the dataframe
+#     required_columns = ['sample_id', 'position', value1[0], value2[0]]
+#     if heatmap:
+#         required_columns.append(heatmap_value[0])
+#     missing_columns = [col for col in required_columns if col not in df.columns]
+#     if missing_columns:
+#         raise ValueError(f"Missing required columns in dataframe: {missing_columns}")
+    
+#     # Initialize cmap_exclusions if None
+#     if cmap_exclusions is None:
+#         cmap_exclusions = []
+    
+#     num_rows, num_cols = plate_dimensions[plate_format]
+    
+#     # Create figure and axis
+#     # Adjust figure size based on plate format and heatmap mode
+#     fig_width = min(24, num_cols * 1.25)
+#     fig_height = min(16, num_rows * 1)
+#     if heatmap:
+#         fig_height += 2  # Add extra height for colorbar
+    
+#     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+    
+#     # Hide axes
+#     ax.set_xticks([])
+#     ax.set_yticks([])
+    
+#     # Create grid for wells
+#     rows = [chr(65 + i) for i in range(num_rows)]  # Generate row labels (A, B, C, ...)
+#     cols = list(range(1, num_cols + 1))
+    
+#     # Set up color mapping
+#     if heatmap:
+#         # Create color normalization based on heatmap values, excluding specified wells
+#         heatmap_values = df[~df['position'].isin(cmap_exclusions)][heatmap_value[0]]
+#         vmin = heatmap_values.min()
+#         vmax = heatmap_values.max()
+#         norm = plt.Normalize(vmin=vmin, vmax=vmax)
+#         cmap = sns.color_palette(heatmap_palette, as_cmap=True)
+#     else:
+#         # Use provided palette or default to Set2
+#         if palette is None:
+#             color_palette = ['#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3', 
+#                             '#a6d854', '#ffd92f', '#e5c494', '#b3b3b3']
+#         else:
+#             color_palette = palette
+        
+#         # Create a dynamic color mapping as we encounter rep_ids
+#         rep_colors = {}
+#         next_color_idx = 0
+    
+#     # Calculate cell size - adjust based on plate format
+#     cell_width = 1
+#     cell_height = 1
+    
+#     def calculate_text_color(facecolor):
+#         """Helper function to determine appropriate text color based on background color."""
+#         if isinstance(facecolor, (tuple, list, np.ndarray)):
+#             # For RGB tuples from heatmap
+#             rgb = [int(x * 255) for x in facecolor[:3]]
+#             brightness = (rgb[0] * 299 + rgb[1] * 587 + rgb[2] * 114) / 1000
+#             return 'black' if brightness > 128 else 'white'
+        
+#         if facecolor in ['white', 'black', 'grey', 'lightgrey', 'lightblue']:
+#             return 'black' if facecolor in ['white', 'lightgrey', 'lightblue'] else 'white'
+        
+#         hex_color = facecolor.lstrip('#')
+#         rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+#         brightness = (rgb[0] * 299 + rgb[1] * 587 + rgb[2] * 114) / 1000
+#         return 'black' if brightness > 128 else 'white'
+
+#     # Use the input font size directly, only scaling for very large plate formats
+#     fontsize = font_size
+#     if plate_format >= 384:
+#         fontsize *= 0.75
+
+#     # Draw grid and add well information
+#     for i, row in enumerate(rows):
+#         for j, col in enumerate(cols):
+#             position = f'{row}{col}'
+#             well_data = df[df['position'] == position]
+            
+#             if not well_data.empty:
+#                 sample_id = well_data['sample_id'].iloc[0]
+#                 val1 = well_data[value1[0]].iloc[0]
+#                 val2 = well_data[value2[0]].iloc[0]
+                
+#                 # Check if it's a standard well or QC well
+#                 is_standard = 'std' in str(sample_id).lower() and '[' in str(sample_id)
+#                 is_qch = 'QC-H' in str(sample_id) and '[' in str(sample_id)
+#                 is_qcm = 'QC-M' in str(sample_id) and '[' in str(sample_id)
+#                 is_qcl = 'QC-L' in str(sample_id) and '[' in str(sample_id)
+                
+#                 # Process the sample_id display consistently for all modes
+#                 if is_standard or is_qch or is_qcm or is_qcl:
+#                     displayed_sample_id = sample_id.split("_")[0]
+#                 else:
+#                     displayed_sample_id = sample_id
+                
+#                 if heatmap and position not in cmap_exclusions:
+#                     heatmap_val = well_data[heatmap_value[0]].iloc[0]
+#                     facecolor = cmap(norm(heatmap_val))
+#                     text = f'{displayed_sample_id}\n{value1[1]}{val1}\n{value2[1]}{val2}\n{heatmap_value[1]}{heatmap_val:.2f}'
+#                 else:
+#                     if heatmap:
+#                         heatmap_val = well_data[heatmap_value[0]].iloc[0]
+#                         text = f'{displayed_sample_id}\n{value1[1]}{val1}\n{value2[1]}{val2}\n{heatmap_value[1]}{heatmap_val:.2f}'
+#                     else:
+#                         text = f'{displayed_sample_id}\n{value1[1]}{val1}\n{value2[1]}{val2}'
+                    
+#                     # Set cell color
+#                     if position in cmap_exclusions:
+#                         facecolor = 'white'
+#                     elif is_qch:
+#                         facecolor = 'black'
+#                     elif is_qcm:
+#                         facecolor = 'grey'
+#                     elif is_qcl:
+#                         facecolor = 'lightgrey'
+#                     elif is_standard:
+#                         facecolor = 'lightblue'
+#                     else:
+#                         if val1 not in rep_colors:
+#                             rep_colors[val1] = color_palette[next_color_idx % len(color_palette)]
+#                             next_color_idx += 1
+#                         facecolor = rep_colors[val1]
+                
+#                 text_color = calculate_text_color(facecolor)
+                
+#             else:
+#                 text = 'N/A'
+#                 text_color = 'black'
+#                 facecolor = 'white'
+            
+#             rect = plt.Rectangle((j * cell_width, (num_rows-1-i) * cell_height), 
+#                                cell_width, cell_height, 
+#                                fill=True,
+#                                facecolor=facecolor,
+#                                ec='black')
+#             ax.add_patch(rect)
+#             ax.text(j * cell_width + cell_width/2, 
+#                    (num_rows-1-i) * cell_height + cell_height/2,
+#                    text,
+#                    ha='center',
+#                    va='center',
+#                    fontsize=fontsize,
+#                    color=text_color)
+    
+#     # Add row labels
+#     for i, row in enumerate(rows):
+#         ax.text(-0.2, (num_rows-1-i) * cell_height + cell_height/2, 
+#                 row, 
+#                 ha='center', 
+#                 va='center', 
+#                 fontweight='bold',
+#                 fontsize=fontsize)
+    
+#     # Add column labels
+#     for j, col in enumerate(cols):
+#         ax.text(j * cell_width + cell_width/2, num_rows + 0.2, 
+#                 str(col), 
+#                 ha='center', 
+#                 va='center', 
+#                 fontweight='bold',
+#                 fontsize=fontsize)
+    
+#     # Set figure limits
+#     ax.set_xlim(-0.5, num_cols)
+#     ax.set_ylim(-0.5, num_rows + 0.5)
+
+#     # Add colorbar if heatmap is enabled
+#     if heatmap:
+#         # Adjust plot position to maintain size
+#         ax.set_position([0.1, 0.2, 0.8, 0.7])  # [left, bottom, width, height]
+        
+#         # Create a new axis for colorbar below the main plot
+#         cbar_ax = fig.add_axes([0.15, 0.1, 0.7, 0.03])  # [left, bottom, width, height]
+#         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+#         cbar = plt.colorbar(sm, cax=cbar_ax, orientation='horizontal', label=heatmap_value[0])
+#         cbar.ax.tick_labels = fontsize
+#     else:
+#         plt.tight_layout()
+        
+#     return fig
+
 def create_plate_visualization(df, plate_format=96, palette=None, font_size=8, 
                              value1=('rep_id', 'Rep: '), value2=('dilution', 'Dil: '),
                              heatmap=False, heatmap_palette="vlag", heatmap_value=('ct', 'Cycle: '),
-                             cmap_exclusions=None):
+                             cmap_exclusions=None, values_decimal_places=2, heatmap_decimal_places=2):
     """
     Create a visualization of a microplate with sample information.
     Colors cells based on rep_id for non-standard/QC wells or as a heatmap based on a specified value.
-    
+
     Args:
         df: DataFrame with columns sample_id, position, rep_id, dilution
         plate_format: Integer specifying total wells (default: 96)
-                     Supported formats: 6, 12, 24, 48, 96, 384, 1536
         palette: List of hex color codes or None (default: uses Set2 palette)
-                e.g., ['#1f77b4', '#ff7f0e', '#2ca02c', ...]
         font_size: Base font size for text (default: 8)
-        value1: Tuple of (column_name, label) for first displayed value (default: ('rep_id', 'Rep: '))
-        value2: Tuple of (column_name, label) for second displayed value (default: ('dilution', 'Dil: '))
-        heatmap: Boolean to enable heatmap mode (default: False)
-        heatmap_palette: String specifying seaborn color palette for heatmap (default: "vlag")
-        heatmap_value: Tuple of (column_name, label) for heatmap value (default: ('ct', 'Cycle: '))
-        cmap_exclusions: List of well positions to exclude from color mapping and heatmap scaling (default: None)
-                        e.g., ['A1', 'H12']
+        value1: Tuple of (column_name, label) for first displayed value
+        value2: Tuple of (column_name, label) for second displayed value
+        heatmap: Boolean to enable heatmap mode
+        heatmap_palette: Seaborn palette for heatmap
+        heatmap_value: Tuple of (column_name, label) for heatmap value
+        cmap_exclusions: List of well positions to exclude from color mapping
+        values_decimal_places: Decimal places for value1 and value2 (if numeric)
+        heatmap_decimal_places: Decimal places for heatmap value
     """
     import seaborn as sns
     import matplotlib.pyplot as plt
     import numpy as np
-    
-    # Define plate dimensions for common formats
+
     plate_dimensions = {
-        6: (2, 3),
-        12: (3, 4),
-        24: (4, 6),
-        48: (6, 8),
-        96: (8, 12),
-        384: (16, 24),
-        1536: (32, 48)
+        6: (2, 3), 12: (3, 4), 24: (4, 6), 48: (6, 8),
+        96: (8, 12), 384: (16, 24), 1536: (32, 48)
     }
-    
+
     if plate_format not in plate_dimensions:
         raise ValueError(f"Unsupported plate format: {plate_format}. Must be one of {list(plate_dimensions.keys())}")
-    
-    # Validate that the requested columns exist in the dataframe
+
     required_columns = ['sample_id', 'position', value1[0], value2[0]]
     if heatmap:
         required_columns.append(heatmap_value[0])
     missing_columns = [col for col in required_columns if col not in df.columns]
     if missing_columns:
         raise ValueError(f"Missing required columns in dataframe: {missing_columns}")
-    
-    # Initialize cmap_exclusions if None
+
     if cmap_exclusions is None:
         cmap_exclusions = []
-    
+
     num_rows, num_cols = plate_dimensions[plate_format]
-    
-    # Create figure and axis
-    # Adjust figure size based on plate format and heatmap mode
     fig_width = min(24, num_cols * 1.25)
     fig_height = min(16, num_rows * 1)
     if heatmap:
-        fig_height += 2  # Add extra height for colorbar
-    
+        fig_height += 2
+
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
-    
-    # Hide axes
     ax.set_xticks([])
     ax.set_yticks([])
-    
-    # Create grid for wells
-    rows = [chr(65 + i) for i in range(num_rows)]  # Generate row labels (A, B, C, ...)
+
+    rows = [chr(65 + i) for i in range(num_rows)]
     cols = list(range(1, num_cols + 1))
-    
-    # Set up color mapping
+
     if heatmap:
-        # Create color normalization based on heatmap values, excluding specified wells
         heatmap_values = df[~df['position'].isin(cmap_exclusions)][heatmap_value[0]]
         vmin = heatmap_values.min()
         vmax = heatmap_values.max()
         norm = plt.Normalize(vmin=vmin, vmax=vmax)
         cmap = sns.color_palette(heatmap_palette, as_cmap=True)
     else:
-        # Use provided palette or default to Set2
         if palette is None:
-            color_palette = ['#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3', 
-                            '#a6d854', '#ffd92f', '#e5c494', '#b3b3b3']
+            color_palette = ['#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3',
+                             '#a6d854', '#ffd92f', '#e5c494', '#b3b3b3']
         else:
             color_palette = palette
-        
-        # Create a dynamic color mapping as we encounter rep_ids
         rep_colors = {}
         next_color_idx = 0
-    
-    # Calculate cell size - adjust based on plate format
+
     cell_width = 1
     cell_height = 1
-    
+
     def calculate_text_color(facecolor):
-        """Helper function to determine appropriate text color based on background color."""
         if isinstance(facecolor, (tuple, list, np.ndarray)):
-            # For RGB tuples from heatmap
             rgb = [int(x * 255) for x in facecolor[:3]]
             brightness = (rgb[0] * 299 + rgb[1] * 587 + rgb[2] * 114) / 1000
             return 'black' if brightness > 128 else 'white'
-        
         if facecolor in ['white', 'black', 'grey', 'lightgrey', 'lightblue']:
             return 'black' if facecolor in ['white', 'lightgrey', 'lightblue'] else 'white'
-        
         hex_color = facecolor.lstrip('#')
         rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
         brightness = (rgb[0] * 299 + rgb[1] * 587 + rgb[2] * 114) / 1000
         return 'black' if brightness > 128 else 'white'
 
-    # Use the input font size directly, only scaling for very large plate formats
     fontsize = font_size
     if plate_format >= 384:
         fontsize *= 0.75
 
-    # Draw grid and add well information
     for i, row in enumerate(rows):
         for j, col in enumerate(cols):
             position = f'{row}{col}'
             well_data = df[df['position'] == position]
-            
+
             if not well_data.empty:
                 sample_id = well_data['sample_id'].iloc[0]
-                val1 = well_data[value1[0]].iloc[0]
-                val2 = well_data[value2[0]].iloc[0]
-                
-                # Check if it's a standard well or QC well
+                val1_raw = well_data[value1[0]].iloc[0]
+                val2_raw = well_data[value2[0]].iloc[0]
+
+                # Format val1 and val2 if numeric
+                if isinstance(val1_raw, (int, float, np.integer, np.floating)):
+                    val1 = f"{val1_raw:.{values_decimal_places}f}"
+                else:
+                    val1 = str(val1_raw)
+
+                if isinstance(val2_raw, (int, float, np.integer, np.floating)):
+                    val2 = f"{val2_raw:.{values_decimal_places}f}"
+                else:
+                    val2 = str(val2_raw)
+
                 is_standard = 'std' in str(sample_id).lower() and '[' in str(sample_id)
                 is_qch = 'QC-H' in str(sample_id) and '[' in str(sample_id)
                 is_qcm = 'QC-M' in str(sample_id) and '[' in str(sample_id)
                 is_qcl = 'QC-L' in str(sample_id) and '[' in str(sample_id)
-                
-                # Process the sample_id display consistently for all modes
-                if is_standard or is_qch or is_qcm or is_qcl:
-                    displayed_sample_id = sample_id.split("_")[0]
-                else:
-                    displayed_sample_id = sample_id
-                
-                if heatmap and position not in cmap_exclusions:
+
+                displayed_sample_id = sample_id.split("_")[0] if (is_standard or is_qch or is_qcm or is_qcl) else sample_id
+
+                if heatmap:
                     heatmap_val = well_data[heatmap_value[0]].iloc[0]
-                    facecolor = cmap(norm(heatmap_val))
-                    text = f'{displayed_sample_id}\n{value1[1]}{val1}\n{value2[1]}{val2}\n{heatmap_value[1]}{heatmap_val:.2f}'
+                    formatted_val = f"{heatmap_val:.{heatmap_decimal_places}f}"
+                    text = f'{displayed_sample_id}\n{value1[1]}{val1}\n{value2[1]}{val2}\n{heatmap_value[1]}{formatted_val}'
+                    facecolor = cmap(norm(heatmap_val)) if position not in cmap_exclusions else 'white'
                 else:
-                    if heatmap:
-                        heatmap_val = well_data[heatmap_value[0]].iloc[0]
-                        text = f'{displayed_sample_id}\n{value1[1]}{val1}\n{value2[1]}{val2}\n{heatmap_value[1]}{heatmap_val:.2f}'
-                    else:
-                        text = f'{displayed_sample_id}\n{value1[1]}{val1}\n{value2[1]}{val2}'
-                    
-                    # Set cell color
+                    text = f'{displayed_sample_id}\n{value1[1]}{val1}\n{value2[1]}{val2}'
                     if position in cmap_exclusions:
                         facecolor = 'white'
                     elif is_qch:
@@ -5654,64 +5859,45 @@ def create_plate_visualization(df, plate_format=96, palette=None, font_size=8,
                             rep_colors[val1] = color_palette[next_color_idx % len(color_palette)]
                             next_color_idx += 1
                         facecolor = rep_colors[val1]
-                
+
                 text_color = calculate_text_color(facecolor)
-                
             else:
                 text = 'N/A'
                 text_color = 'black'
                 facecolor = 'white'
-            
-            rect = plt.Rectangle((j * cell_width, (num_rows-1-i) * cell_height), 
-                               cell_width, cell_height, 
-                               fill=True,
-                               facecolor=facecolor,
-                               ec='black')
+
+            rect = plt.Rectangle((j * cell_width, (num_rows - 1 - i) * cell_height), 
+                                 cell_width, cell_height, 
+                                 fill=True, facecolor=facecolor, ec='black')
             ax.add_patch(rect)
-            ax.text(j * cell_width + cell_width/2, 
-                   (num_rows-1-i) * cell_height + cell_height/2,
-                   text,
-                   ha='center',
-                   va='center',
-                   fontsize=fontsize,
-                   color=text_color)
-    
-    # Add row labels
+            ax.text(j * cell_width + cell_width / 2, 
+                    (num_rows - 1 - i) * cell_height + cell_height / 2,
+                    text, ha='center', va='center',
+                    fontsize=fontsize, color=text_color)
+
     for i, row in enumerate(rows):
-        ax.text(-0.2, (num_rows-1-i) * cell_height + cell_height/2, 
-                row, 
-                ha='center', 
-                va='center', 
-                fontweight='bold',
-                fontsize=fontsize)
-    
-    # Add column labels
+        ax.text(-0.2, (num_rows - 1 - i) * cell_height + cell_height / 2, 
+                row, ha='center', va='center', fontweight='bold', fontsize=fontsize)
     for j, col in enumerate(cols):
-        ax.text(j * cell_width + cell_width/2, num_rows + 0.2, 
-                str(col), 
-                ha='center', 
-                va='center', 
-                fontweight='bold',
-                fontsize=fontsize)
-    
-    # Set figure limits
+        ax.text(j * cell_width + cell_width / 2, num_rows + 0.2, 
+                str(col), ha='center', va='center', fontweight='bold', fontsize=fontsize)
+
     ax.set_xlim(-0.5, num_cols)
     ax.set_ylim(-0.5, num_rows + 0.5)
 
-    # Add colorbar if heatmap is enabled
     if heatmap:
-        # Adjust plot position to maintain size
-        ax.set_position([0.1, 0.2, 0.8, 0.7])  # [left, bottom, width, height]
-        
-        # Create a new axis for colorbar below the main plot
-        cbar_ax = fig.add_axes([0.15, 0.1, 0.7, 0.03])  # [left, bottom, width, height]
+        ax.set_position([0.1, 0.2, 0.8, 0.7])
+        cbar_ax = fig.add_axes([0.15, 0.1, 0.7, 0.03])
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         cbar = plt.colorbar(sm, cax=cbar_ax, orientation='horizontal', label=heatmap_value[0])
-        cbar.ax.tick_labels = fontsize
+        cbar.ax.tick_params(labelsize=fontsize)
     else:
         plt.tight_layout()
-        
+
     return fig
+
+
+
 # # Example usage:
 # fig1 = create_plate_visualization(py_metatable, plate_format = 96, palette = ['#FFFFFF'], font_size=12)
 # fig2 = create_plate_visualization(py_metatable, plate_format = 96, font_size=12)
