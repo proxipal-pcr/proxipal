@@ -3541,6 +3541,10 @@ def plot_interassay_drift(drift_table):
 def analyse_imprecision(dataframe: pd.DataFrame, columns_to_analyse: list, 
                         grubbs_test: str = 'intra/inter', grubbs_remove: bool = True) -> pd.DataFrame:
     """
+    analyse_imprecision() → performs intra-assay and inter-assay CV analysis. It explicitly distinguishes within-assay (repeated measures in a single run) and 
+    between-assay (averages across runs) variability. Uses grouping by sample_id, tube_id, and filepath_csv to compute separate CVs at both hierarchical levels.
+    
+    
     analyse_imprecision() takes a user-curated dataframe with ProxiPal data structure, i.e.
     'sample_id', 'filepath_csv', 'expt_folder_csv', 'analysis_folder_csv'. Such dataframes are typically produced as 
     megatables or metatables in ProxiPal. Curation of the input dataframe should be considered prior to using
@@ -3579,6 +3583,12 @@ def analyse_imprecision(dataframe: pd.DataFrame, columns_to_analyse: list,
     Returns:
         pd.DataFrame: A dataframe containing the imprecision analysis results for each sample.
     """
+
+    # Ensure only numeric, non-NaN data in columns to analyse
+    dataframe = dataframe.copy()
+    for col in columns_to_analyse:
+        dataframe[col] = pd.to_numeric(dataframe[col], errors='coerce')
+    dataframe = dataframe.dropna(subset=columns_to_analyse)
 
     # Group the data by 'sample_id'
     # grouped = dataframe.groupby('sample_id') #deprecated in favour of grouping by both sample_id and tube_id
@@ -3989,6 +3999,132 @@ def summarise_imprecision(df: pd.DataFrame, metric: str, sample_id_substring: st
 
 ## Usage
 ## filtered_df = summarise_imprecision(data_rdml_indiv_imprecision, metric='rdml_mean_ng/L', sample_id_substring = 'NFL', min_inter_assay_freq = 3)
+
+
+def build_qc_df(df: pd.DataFrame, sample_id: list = None, stdev_range: int = 2) -> pd.DataFrame:
+    """
+    build_qc_df() → automatically constructs a QC dataframe from either
+    analyse_imprecision() or analyze_sample_stats() output.
+    It's intended for use with process_qc_data()
+
+    For analyse_imprecision(): uses inter-assay_mean and inter-assay_stdev columns.
+    For analyze_sample_stats(): uses mean and std columns.
+
+    Args:
+        df (pd.DataFrame): Input dataframe (output of analyse_imprecision() or analyze_sample_stats()).
+        sample_id (list, optional): Subset of sample_ids to include. Default = all.
+        stdev_range (int): Multiplier for the stdev range (e.g., 2 for mean ± 2*stdev).
+
+    Returns:
+        pd.DataFrame: QC dataframe with columns:
+                      ['sample_id', 'mean', 'stdev', f'stdev_range={stdev_range}', 'fail raw_ng/L', 'fail mean_ng/L']
+    """
+
+    # Identify function source by column pattern
+    imprecision_mean_cols = [c for c in df.columns if c.startswith('inter-assay_mean')]
+    imprecision_stdev_cols = [c for c in df.columns if c.startswith('inter-assay_stdev')]
+
+    if len(imprecision_mean_cols) > 1 or len(imprecision_stdev_cols) > 1:
+        raise ValueError("Multiple inter-assay metrics detected. Re-run analyse_imprecision() with a single columns_to_analyse entry.")
+    
+    if len(imprecision_mean_cols) == 1 and len(imprecision_stdev_cols) == 1:
+        mean_col = imprecision_mean_cols[0]
+        stdev_col = imprecision_stdev_cols[0]
+    elif {'mean', 'std'}.issubset(df.columns):
+        mean_col, stdev_col = 'mean', 'std'
+    else:
+        raise ValueError("Input DataFrame does not match expected structure from analyse_imprecision() or analyze_sample_stats().")
+
+    # Subset if sample_id list is provided
+    if sample_id:
+        df = df[df['sample_id'].isin(sample_id)]
+
+    qc_records = []
+    for _, row in df.iterrows():
+        mean_val = float(row[mean_col])
+        stdev_val = float(row[stdev_col])
+
+        lower = int(round(mean_val - stdev_range * stdev_val))
+        upper = int(round(mean_val + stdev_range * stdev_val))
+        qc_records.append({
+            'sample_id': row['sample_id'],
+            'mean': mean_val,
+            'stdev': stdev_val,
+            f'stdev_range={stdev_range}': f'[{lower}, {upper}]',
+            'fail raw_ng/L': None,
+            'fail mean_ng/L': None
+        })
+
+    qc_df = pd.DataFrame(qc_records)
+    return qc_df
+
+# Example usage
+# analyse_ss = analyze_sample_stats(data = mastertable, model_type = 'SLR; log10(x); exc_std0; ct; raw_ng/L', decimal_places = 'integer', format_timing= 'before')
+# qc_df = build_qc_df(df, sample_id = ['NFL-QC-H'], stdev_range = 2)
+
+
+def process_qc_data(qc_df, py_metatable):
+    """
+    Process QC data and identify failures based on standard deviation ranges.
+    Uses mean values from qc_df to evaluate failures for both raw and mean ng/L values.
+    
+    Parameters:
+    qc_df (pd.DataFrame): DataFrame containing QC information
+    py_metatable (pd.DataFrame): DataFrame containing measurement data with dilution column
+    
+    Returns:
+    pd.DataFrame: Updated QC DataFrame with fail values
+    """
+    # Create a copy of the input DataFrame to avoid modifying the original
+    qc_df = qc_df.copy()
+    
+    def parse_range(range_str):
+        """Extract min and max values from range string '[min, max]'"""
+        return [float(x) for x in range_str.strip('[]').split(',')]
+    
+    def calculate_deviations(value, mean, std):
+        """Calculate number of standard deviations from mean"""
+        return abs(value - mean) / std
+    
+    def check_failures(sample_data, mean_val, std_val, value_column):
+        """Check for failures in a specific value column"""
+        fails = []
+        for pos_idx, pos_row in sample_data.iterrows():
+            value = pos_row[value_column]
+            position = pos_row['position']
+            
+            # Check if value is outside the acceptable range defined by mean ± 2*std
+            if (value < (mean_val - 2*std_val)) or (value > (mean_val + 2*std_val)):
+                dev_calc = calculate_deviations(value, mean_val, std_val)
+                fail_str = f"[{position};{value:.0f};{dev_calc:.2f}]"
+                fails.append(fail_str)
+        return fails
+    
+    # Process each QC sample
+    for idx, row in qc_df.iterrows():
+        sample_id = row['sample_id']
+        mean_val = row['mean']
+        std_val = row['stdev']
+        
+        # Filter py_metatable for current sample_id and dilution
+        sample_data = py_metatable[
+            (py_metatable['sample_id'] == sample_id) & 
+            (py_metatable['dilution'] == 10)
+        ]
+        
+        # Check raw values
+        raw_fails = check_failures(sample_data, mean_val, std_val, 
+                                 'SLR; log10(x); exc_std0; ct; raw_ng/L')
+        if raw_fails:
+            qc_df.at[idx, 'fail raw_ng/L'] = '; '.join(raw_fails)
+            
+        # Check mean values
+        mean_fails = check_failures(sample_data, mean_val, std_val,
+                                  'SLR; log10(x); exc_std0; ct; mean_ng/L')
+        if mean_fails:
+            qc_df.at[idx, 'fail mean_ng/L'] = ', '.join(mean_fails)
+    
+    return qc_df
 
 
 def calc_PL_metrics(y_true: np.ndarray, y_pred: np.ndarray, 
@@ -5972,7 +6108,8 @@ def analyze_sample_stats(data: pd.DataFrame,
                         decimal_places: Union[int, str] = 0, 
                         format_timing: str = 'before') -> pd.DataFrame:
     """
-    Calculate statistics for each sample_id with flexible decimal place formatting.
+    analyze_sample_stats() → performs the pooled CV calculation. It analyses single reactions from all measurements in all assays for each sample_id and provides a simple statistical 
+    summary (mean, stdev, CV). This function differs from analyse_imprecision() in that no distinctions are made between intra or inter assay performance and outlier filters are not offered. 
     
     Parameters:
     -----------
@@ -5989,18 +6126,19 @@ def analyze_sample_stats(data: pd.DataFrame,
     --------
     DataFrame: Statistics for each sample_id
     """
-    
+
     if format_timing == 'before':
         print("""Attention User! Setting format_timing = before. Therefore Mean and Standard Deviation values will be rounded prior to calculating imprecision ranges. """
               """Check tables carefully for evidence of rounding errors. For example: """)
-        print("Setting format_timing = before. Lower bound evaluated as round(mean) - round(2*standard deviation)""")
-        print("Setting format_timing = after. Lower bound evaluated as round(mean - (2*standard deviation))""")
-    
+        print("Setting format_timing = before. Lower bound evaluated as round(mean) - round(2*standard deviation)")
+        print("Setting format_timing = after. Lower bound evaluated as round(mean - (2*standard deviation))")
     elif format_timing == 'after':
         print("User format_timing = after. Imprecision ranges will first be calculated from native Mean and Standard Deviation values. Rounding will be applied to the ranges afterwards.")
 
     def format_number(value: float) -> Union[int, float]:
         """Format a number according to specified decimal places or as integer"""
+        if pd.isna(value):
+            return np.nan
         if decimal_places == 'integer':
             return int(round(value))
         else:
@@ -6008,21 +6146,34 @@ def analyze_sample_stats(data: pd.DataFrame,
     
     def calculate_stats(group: pd.Series) -> pd.Series:
         """Calculate statistical measures for a group of samples"""
+        # Drop NaN and ensure numeric
+        group = pd.to_numeric(group, errors='coerce').dropna()
         n: int = len(group)
+        if n == 0:
+            return pd.Series({
+                'mean': np.nan, 'std': np.nan, 'cv_percent': np.nan,
+                'ci_lower': np.nan, 'ci_upper': np.nan, 'n_samples': 0,
+                'std1_range': [np.nan, np.nan],
+                'std2_range': [np.nan, np.nan],
+                'std3_range': [np.nan, np.nan]
+            })
+
         mean: float = group.mean()
         std: float = group.std()
-        cv: float = (std / abs(mean)) * 100
+        cv: float = (std / abs(mean)) * 100 if mean != 0 else np.nan
         
         # Calculate 95% confidence interval
-        ci: Tuple[float, float] = stats.t.interval(
-            confidence=0.95,
-            df=n-1,
-            loc=mean,
-            scale=stats.sem(group)
-        )
+        if n > 1:
+            ci: Tuple[float, float] = stats.t.interval(
+                confidence=0.95,
+                df=n-1,
+                loc=mean,
+                scale=stats.sem(group)
+            )
+        else:
+            ci = (mean, mean)
 
         if format_timing == 'before':
-            # Format values before calculations
             mean = format_number(mean)
             std1 = format_number(std)
             std2 = format_number(2*std)
@@ -6036,7 +6187,6 @@ def analyze_sample_stats(data: pd.DataFrame,
             std3_upper = format_number(mean) + format_number(std3)
         
         else:  # 'after'
-            # Calculate at full precision
             std1 = std
             std2 = 2 * std
             std3 = 3 * std
@@ -6053,10 +6203,10 @@ def analyze_sample_stats(data: pd.DataFrame,
             
         return pd.Series({
             'mean': format_number(mean),
-            'std': round(std,2),
-            'cv_percent': round(cv, 1),
-            'ci_lower': round(ci[0], 1),
-            'ci_upper': round(ci[1], 1),
+            'std': round(std, 2),
+            'cv_percent': round(cv, 1) if not pd.isna(cv) else np.nan,
+            'ci_lower': round(ci[0], 1) if not pd.isna(ci[0]) else np.nan,
+            'ci_upper': round(ci[1], 1) if not pd.isna(ci[1]) else np.nan,
             'n_samples': n,
             'std1_range': [std1_lower, std1_upper],
             'std2_range': [std2_lower, std2_upper],
@@ -6064,7 +6214,6 @@ def analyze_sample_stats(data: pd.DataFrame,
         })
     
     def custom_sort_key(sample_id: str) -> Tuple[int, float, str]:
-        """Generate sorting key for sample IDs"""
         has_std: bool = 'std' in sample_id.lower()
         match: Union[re.Match, None] = re.search(r'\[([\d.]+)\]', sample_id)
         if has_std:
@@ -6076,27 +6225,24 @@ def analyze_sample_stats(data: pd.DataFrame,
                 return (0, float(match.group(1)), sample_id)
             return (0, float('inf'), sample_id)
     
-    # Input validation
     if format_timing not in ['before', 'after']:
         raise ValueError("format_timing must be either 'before' or 'after'")
     
-    # Group by sample_id and calculate statistics
     results: List[pd.Series] = []
     for sample_id, group in data.groupby('sample_id'):
         stats_series = calculate_stats(group[model_type])
         stats_series['sample_id'] = sample_id
         results.append(stats_series)
     
-    # Create final DataFrame
     stats_df = pd.DataFrame(results)
     stats_df = stats_df[['sample_id', 'mean', 'std', 'cv_percent', 
                         'ci_lower', 'ci_upper', 'n_samples',
                         'std1_range', 'std2_range', 'std3_range']]
     
-    # Sort using the custom function
     stats_df = stats_df.sort_values('sample_id', key=lambda x: x.map(custom_sort_key)).reset_index(drop=True)
     
     return stats_df
+
 
 # # Example Usage
 # stats_results = analyze_sample_stats(data_f, model_type = 'usr_raw_ng/L', decimal_places = 'integer', format_timing = 'before')
