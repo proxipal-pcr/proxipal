@@ -1772,6 +1772,41 @@ def extract_instr_tables(path: Path):
 # MRFF2_eds = data_folder / '230324_MRFF_e2_kruti' / '230410' / 'Plate 2_NfL_MRFF_Dhama Plasma 21s to 40s.txt'
 # MRFF2_dict = extract_instr_tables(MRFF2_eds)
 
+# def build_instr_df(instr_tables_dict: dict):
+#     '''
+#     Manipulates a dictionary object created in extract_instr_tables()
+#     From the object the dataframes for ['Raw Data', 'Amplification Data', 'Multicomponent Data', 'Melt Curve Raw Data']
+#     are manipulated into a single wideform flat dataframe where 1 well = 1 row. Cycling data is collapsed into lists on a per cell basis.
+    
+#     This function will typically be used for merging with the mastertable so that raw values on a per reaction basis can be compared across experiments.
+    
+#     Parameters
+#     ----------
+#     instr_tables_dict : dict
+#         An obect created by extract_instr_tables()
+        
+#     Returns
+#     ----------    
+#     instr_df : pd.DataFrame
+#         A single dataframe contain all values from tables ['Raw Data', 'Amplification Data', 'Multicomponent Data', 'Melt Curve Raw Data']
+#     '''
+#     # Select the relevant tables
+#     relevant_keys = ['Raw Data', 'Amplification Data', 'Multicomponent Data', 'Melt Curve Raw Data']
+#     relevant_tables = {key: instr_tables_dict[key] for key in relevant_keys}
+    
+#     # Prepare a new DataFrame to hold the flattened information
+#     instr_df = pd.DataFrame()
+
+#     for key, table in relevant_tables.items():
+#         # Flatten each column into a list, or a single value if all values are identical
+#         for col in table.columns:
+#             instr_df[f'{col} (eds; {key.lower()})'] = table.groupby('well')[col].apply(lambda x: x.iloc[0] if x.nunique() == 1 else x.tolist())
+
+#     # Reset the index to merge on 'well'
+#     instr_df.reset_index(inplace=True)
+
+#     return instr_df
+
 def build_instr_df(instr_tables_dict: dict):
     '''
     Manipulates a dictionary object created in extract_instr_tables()
@@ -1783,15 +1818,29 @@ def build_instr_df(instr_tables_dict: dict):
     Parameters
     ----------
     instr_tables_dict : dict
-        An obect created by extract_instr_tables()
+        An object created by extract_instr_tables()
         
     Returns
     ----------    
     instr_df : pd.DataFrame
-        A single dataframe contain all values from tables ['Raw Data', 'Amplification Data', 'Multicomponent Data', 'Melt Curve Raw Data']
+        A single dataframe containing all values from tables
+        ['Raw Data', 'Amplification Data', 'Multicomponent Data', 'Melt Curve Raw Data'] (where present).
     '''
-    # Select the relevant tables
-    relevant_keys = ['Raw Data', 'Amplification Data', 'Multicomponent Data', 'Melt Curve Raw Data']
+    # REQUIRED tables
+    required_keys = ['Raw Data', 'Amplification Data', 'Multicomponent Data']
+    # OPTIONAL tables
+    optional_keys = ['Melt Curve Raw Data']
+
+    # Fail only if a required table is missing
+    missing_required = [k for k in required_keys if k not in instr_tables_dict]
+    if missing_required:
+        raise KeyError(f"Missing required keys {', '.join(missing_required)}")
+
+    # Only include optional tables that actually exist
+    present_optional = [k for k in optional_keys if k in instr_tables_dict]
+
+    # Select the tables we actually have
+    relevant_keys = required_keys + present_optional
     relevant_tables = {key: instr_tables_dict[key] for key in relevant_keys}
     
     # Prepare a new DataFrame to hold the flattened information
@@ -1800,7 +1849,10 @@ def build_instr_df(instr_tables_dict: dict):
     for key, table in relevant_tables.items():
         # Flatten each column into a list, or a single value if all values are identical
         for col in table.columns:
-            instr_df[f'{col} (eds; {key.lower()})'] = table.groupby('well')[col].apply(lambda x: x.iloc[0] if x.nunique() == 1 else x.tolist())
+            instr_df[f'{col} (eds; {key.lower()})'] = (
+                table.groupby('well')[col]
+                     .apply(lambda x: x.iloc[0] if x.nunique() == 1 else x.tolist())
+            )
 
     # Reset the index to merge on 'well'
     instr_df.reset_index(inplace=True)
@@ -1813,6 +1865,55 @@ def build_instr_df(instr_tables_dict: dict):
 # Add in an identifier column if planning to merge on mastertable
 # MRFF2_df['filepath_txt'] = '230324_MRFF_e2_kruti/230410/Plate 2_NfL_MRFF_Dhama Plasma 21s to 40s.txt'
 
+
+# def build_master_instr_df(df_pivot: pd.DataFrame, data_folder: Path):
+#     '''
+#     Accepts a pd.DataFrame reporting the file integrity status of experiments in the data_folder.
+#     The dataframe is produced by the review_matched_filenames() function.
+    
+#     When executed, build_master_instr_df() will iterate on every experiment with all requisite files and 
+#     extract all Quantstudio .eds exported data from the tables ['Raw Data', 'Amplification Data', 
+#     'Multicomponent Data', 'Melt Curve Raw Data'] of each experiment.
+    
+#     Parameters
+#     ----------
+#     df_pivot : pd.DataFrame
+#         A dataframe produced by review_matched_filenames()
+    
+#     data_folder : Path
+#         A pathlib object pointing to ProxiPal's /data folder
+        
+#     Returns
+#     ----------
+#     all_instr_dfs : pd.DataFrame
+#         Consolidates all .eds exported raw data from ProxiPal experiments into a single concatenated dataframe.
+#         Adds column "filepath_txt" for each experiment so that, with "well" all instrument data can be merged onto the mastertable.
+#     '''
+    
+#     all_instr_dfs = pd.DataFrame()
+
+#     for idx, row in df_pivot.iterrows():
+#         if row['txt'] == True and row['csv'] == True:
+#             path_key = data_folder / (row['path_key'] + '.txt')
+#             instr_dict = extract_instr_tables(path_key)
+            
+#             if len(instr_dict) != 8:
+#                 print('Warning: Not all instrument tables were exported. Open the QuantStudio .eds and re-export the .txt file below. This function will not complete if an eds export is incomplete.')
+#                 print(path_key)
+                
+#             # Select the relevant tables
+#             relevant_keys = ['Raw Data', 'Amplification Data', 'Multicomponent Data', 'Melt Curve Raw Data']
+            
+#             missing_keys = [key for key in relevant_keys if key not in instr_dict]
+            
+#             if missing_keys:
+#                 raise KeyError(f"Missing keys {', '.join(missing_keys)} in file {path_key}")
+                
+#             instr_df = build_instr_df(instr_dict)
+#             instr_df['filepath_txt'] = str(row['path_key'] + '.txt')
+#             all_instr_dfs = pd.concat([all_instr_dfs, instr_df], axis=0)
+
+#     return all_instr_dfs
 
 def build_master_instr_df(df_pivot: pd.DataFrame, data_folder: Path):
     '''
@@ -1845,23 +1946,31 @@ def build_master_instr_df(df_pivot: pd.DataFrame, data_folder: Path):
             path_key = data_folder / (row['path_key'] + '.txt')
             instr_dict = extract_instr_tables(path_key)
             
+            # Keep the existing sanity check
             if len(instr_dict) != 8:
                 print('Warning: Not all instrument tables were exported. Open the QuantStudio .eds and re-export the .txt file below. This function will not complete if an eds export is incomplete.')
                 print(path_key)
-                
-            # Select the relevant tables
-            relevant_keys = ['Raw Data', 'Amplification Data', 'Multicomponent Data', 'Melt Curve Raw Data']
             
-            missing_keys = [key for key in relevant_keys if key not in instr_dict]
+            # REQUIRED tables
+            required_keys = ['Raw Data', 'Amplification Data', 'Multicomponent Data']
+            # OPTIONAL tables
+            optional_keys = ['Melt Curve Raw Data']
             
-            if missing_keys:
-                raise KeyError(f"Missing keys {', '.join(missing_keys)} in file {path_key}")
-                
+            missing_required = [key for key in required_keys if key not in instr_dict]
+            if missing_required:
+                raise KeyError(f"Missing required keys {', '.join(missing_required)} in file {path_key}")
+            
+            # Log but do not fail if optional tables are missing
+            missing_optional = [key for key in optional_keys if key not in instr_dict]
+            if missing_optional:
+                print(f"Warning: missing optional keys {', '.join(missing_optional)} in file {path_key}")
+            
             instr_df = build_instr_df(instr_dict)
             instr_df['filepath_txt'] = str(row['path_key'] + '.txt')
             all_instr_dfs = pd.concat([all_instr_dfs, instr_df], axis=0)
 
     return all_instr_dfs
+
 
 # Usage
 # master_instr_df = build_master_instr_df(df_pivot, data_folder)
