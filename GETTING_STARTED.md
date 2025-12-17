@@ -91,8 +91,9 @@ Once setup is complete interact with proxipal.py using jupyter notebook:
 jupyter notebook
 ```
 then from jupyter notebook:
+```
 from ProxiPal import *
-
+```
 ProxiPal expects the following folder structure under `app/`:
 
 ```
