@@ -85,12 +85,13 @@ pip install pandas numpy scipy scikit-learn pymannkendall outliers plotly matplo
 
 ## ▶️ 4. Run ProxiPal
 
-Once setup is complete:
+Once setup is complete interact with proxipal.py using jupyter notebook:
 
 ```bash
-cd app/python
-python ProxiPal.py
+jupyter notebook
 ```
+then from jupyter notebook:
+from ProxiPal import *
 
 ProxiPal expects the following folder structure under `app/`:
 
