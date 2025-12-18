@@ -169,69 +169,6 @@ def get_file_and_parents(file_path: Path, num_parents: int = 2) -> str:
     return destination
 
 
-def find_matched_filenames(path: Path, native_format: str = '.eds', export_format: str = '.txt', read_export: bool = True) -> tuple:
-    '''
-    Identifies different file types with the same stem from a directory path and all its subdirectories.
-
-    Parameters
-    ----------
-    path : Path
-        A pathlib object that represents the directory path to search.
-    native_format : str, optional
-        A string that specifies the native file format to search for. Default is '.eds'.
-    export_format : str, optional
-        A string that specifies the export file format to search for. Default is '.txt'.
-    read_export : bool, optional
-        A boolean flag that specifies whether to read the contents of the export files. If True (default), the function returns a dictionary with file paths and contents. If False, the function returns a dummy dictionary with an 'empty' key and a message.
-
-    Returns
-    -------
-    tuple
-        A tuple containing two items:
-        - export_file_list: a list of name-matched export files as pathlib objects
-        - export_dict: a dictionary with export file paths and contents (if read_export is True) or a dummy dictionary with a message (if read_export is False)
-
-    '''
-    # Get a list of all the native files in the directory and its subdirectories
-    native_file_list = []
-    for f in Path(path).glob('**/*' + native_format):
-        native_file_list.append(f)
-
-    # Get a list of all the export files with the same stem as the native files
-    export_file_list = [p.with_suffix(export_format) for p in native_file_list]
-
-    # Read the contents of the export files and store them in a dictionary
-    export_dict = {}
-    if read_export == True:
-        for file_path in export_file_list:
-            try:
-                # Check if the file exists
-                if not file_path.is_file():
-                    print(f"File not found: {file_path}")
-                    continue
-                
-                # Reading the file based on its format
-                if export_format == '.txt':
-                    with open(file_path, 'r') as file:
-                        file_contents = file.read()
-                        export_dict[get_file_and_parents(file_path)] = file_contents
-                        
-                elif export_format == '.csv':
-                    export_dict[get_file_and_parents(file_path)] = pd.read_csv(file_path, header=None)
-
-            except PermissionError:
-                print(f"Insufficient permissions to read file: {file_path}")
-            except Exception as e:
-                print(f"Error reading file {file_path}: {e}")
-
-    # If read_export is False, return a dummy dictionary with a message
-    elif read_export == False:
-        export_dict['empty'] = 'User has specified "read_export = False" when calling function find_matched_filenames().'
-    
-    # Return the export file list and dictionary
-    return export_file_list, export_dict
-
-
 def review_matched_filenames(eds2txt_match_dict, eds2csv_match_dict):
     
     file_paths = list(eds2txt_match_dict.keys()) + list(eds2csv_match_dict.keys())
@@ -265,11 +202,6 @@ def review_matched_filenames(eds2txt_match_dict, eds2csv_match_dict):
     df_review = df_pivot[['experiment', 'analysis', 'eds filename', 'txt', 'csv', 'path_key']]
     
     return df_review
-
-
-#### USAGE:
-# eds2txt_match_list, eds2txt_match_dict = find_matched_filenames(base_path, read_export = True)
-# eds2csv_match_list, eds2csv_match_dict = find_matched_filenames(base_path, native_format = '.eds', export_format = '.csv', read_export = True)
 
 
 def extract_instr_params(string_value: str) -> pd.Series:
@@ -1523,80 +1455,6 @@ def create_master_table(match_type: str = 'TS') -> dict:
     
     return master_dict
 
-# def batch_py_metatables(eds2txt_match_dict: dict, eds2csv_match_dict: dict) -> None:
-#     """
-#     Given two dictionaries that match EDS files to txt and csv files respectively, this function
-#     processes each matched file set in a batch.
-
-#     :param eds2txt_match_dict: dictionary that maps EDS files to txt files.
-#     :param eds2csv_match_dict: dictionary that maps EDS files to csv files.
-
-#     The function iterates over each file set, checks if the txt and csv files exist for the path_key,
-#     and if they do, it tries to create a data metatable and calculate standard deviations using linear regression.
-#     If the files don't exist or if the processing fails due to FileNotFoundError, an appropriate message is printed.
-#     """
-    
-#     # Generate pivot dataframe from the matched filenames
-#     df_pivot = review_matched_filenames(eds2txt_match_dict, eds2csv_match_dict)
-    
-#     # Iterate over the 'path_key' list
-#     for path in df_pivot['path_key'].tolist():
-#         # Check if both 'txt' and 'csv' files exist for the given 'path_key'
-#         if (df_pivot.loc[df_pivot['path_key'] == path, ['txt', 'csv']].all(axis=1)).any():
-#             try:
-#                 # If they exist, try to create a data metatable and calculate standard deviations
-#                 create_data_metatable(eds2txt_match_dict, eds2csv_match_dict, path)                
-#                 path_csv = data_folder / (path + '.csv')
-#                 path_metatable = path_csv.parent / 'exports/metatable.csv'
-#                 metatable = pd.read_csv(path_metatable, low_memory = False)
-#                 calc_py_metatable_all_models(metatable, rdml_check=True, export=True)
-#                 print(path, 'processed')
-#             except FileNotFoundError:
-#                 # If processing fails, print an error message
-#                 print(path, 'create_data_metatable() or calc_metatable_std_lin_reg() failed')
-#         else:
-#             # If 'txt' and 'csv' files do not exist, print an error message
-#             print(path, 'is missing, or mislabeled, an eds, txt, or csv file and cannot be processed')
-            
-#     return None
-
-# def batch_py_metatables(eds2txt_match_dict: dict, eds2csv_match_dict: dict) -> None:
-#     """
-#     Given two dictionaries that match EDS files to txt and csv files respectively, this function
-#     processes each matched file set in a batch.
-#     :param eds2txt_match_dict: dictionary that maps EDS files to txt files.
-#     :param eds2csv_match_dict: dictionary that maps EDS files to csv files.
-#     The function iterates over each file set, checks if the txt and csv files exist for the path_key,
-#     and if they do, it tries to create a data metatable and calculate standard deviations using linear regression.
-#     If the files don't exist or if the processing fails due to FileNotFoundError, an appropriate message is printed.
-#     """
-    
-#     # Generate pivot dataframe from the matched filenames
-#     df_pivot = review_matched_filenames(eds2txt_match_dict, eds2csv_match_dict)
-    
-#     # Iterate over the 'path_key' list
-#     for path in df_pivot['path_key'].tolist():
-#         # Check if both 'txt' and 'csv' files exist for the given 'path_key'
-#         if (df_pivot.loc[df_pivot['path_key'] == path, ['txt', 'csv']].all(axis=1)).any():
-#             try:
-#                 # If they exist, try to create a data metatable and calculate standard deviations
-#                 create_data_metatable(eds2txt_match_dict, eds2csv_match_dict, path)                
-#                 path_csv = data_folder / (path + '.csv')
-#                 path_metatable = path_csv.parent / 'exports/metatable.csv'
-#                 metatable = pd.read_csv(path_metatable, low_memory = False)
-                
-#                 # Suppress print statements from calc_py_metatable_all_models
-#                 with contextlib.redirect_stdout(io.StringIO()):
-#                     calc_py_metatable_all_models(metatable, rdml_check=True, export=True)
-#                 print(path, 'processed')
-#             except FileNotFoundError:
-#                 # If processing fails, print an error message
-#                 print(path, 'create_data_metatable() or calc_py_metatable_all_models() failed')
-#         else:
-#             # If 'txt' and 'csv' files do not exist, print an error message
-#             print(path, 'is missing, or mislabeled, an eds, txt, or csv file and cannot be processed')
-            
-#     return None
 
 def batch_py_metatables(eds2txt_match_dict: dict, eds2csv_match_dict: dict, 
                         df_pivot_slice: str = None, calc_all_models: bool = True) -> None:
@@ -1667,7 +1525,6 @@ def batch_py_metatables(eds2txt_match_dict: dict, eds2csv_match_dict: dict,
 
 # # Process from index 15 to the end
 # batch_py_metatables(eds2txt_match_dict, eds2csv_match_dict, df_pivot_slice='15:')
-
 
 def extract_instr_tables(path: Path):
     '''  
@@ -1772,6 +1629,7 @@ def extract_instr_tables(path: Path):
 # MRFF2_eds = data_folder / '230324_MRFF_e2_kruti' / '230410' / 'Plate 2_NfL_MRFF_Dhama Plasma 21s to 40s.txt'
 # MRFF2_dict = extract_instr_tables(MRFF2_eds)
 
+
 # def build_instr_df(instr_tables_dict: dict):
 #     '''
 #     Manipulates a dictionary object created in extract_instr_tables()
@@ -1783,15 +1641,29 @@ def extract_instr_tables(path: Path):
 #     Parameters
 #     ----------
 #     instr_tables_dict : dict
-#         An obect created by extract_instr_tables()
+#         An object created by extract_instr_tables()
         
 #     Returns
 #     ----------    
 #     instr_df : pd.DataFrame
-#         A single dataframe contain all values from tables ['Raw Data', 'Amplification Data', 'Multicomponent Data', 'Melt Curve Raw Data']
+#         A single dataframe containing all values from tables
+#         ['Raw Data', 'Amplification Data', 'Multicomponent Data', 'Melt Curve Raw Data'] (where present).
 #     '''
-#     # Select the relevant tables
-#     relevant_keys = ['Raw Data', 'Amplification Data', 'Multicomponent Data', 'Melt Curve Raw Data']
+#     # REQUIRED tables
+#     required_keys = ['Raw Data', 'Amplification Data', 'Multicomponent Data']
+#     # OPTIONAL tables
+#     optional_keys = ['Melt Curve Raw Data']
+
+#     # Fail only if a required table is missing
+#     missing_required = [k for k in required_keys if k not in instr_tables_dict]
+#     if missing_required:
+#         raise KeyError(f"Missing required keys {', '.join(missing_required)}")
+
+#     # Only include optional tables that actually exist
+#     present_optional = [k for k in optional_keys if k in instr_tables_dict]
+
+#     # Select the tables we actually have
+#     relevant_keys = required_keys + present_optional
 #     relevant_tables = {key: instr_tables_dict[key] for key in relevant_keys}
     
 #     # Prepare a new DataFrame to hold the flattened information
@@ -1800,64 +1672,15 @@ def extract_instr_tables(path: Path):
 #     for key, table in relevant_tables.items():
 #         # Flatten each column into a list, or a single value if all values are identical
 #         for col in table.columns:
-#             instr_df[f'{col} (eds; {key.lower()})'] = table.groupby('well')[col].apply(lambda x: x.iloc[0] if x.nunique() == 1 else x.tolist())
+#             instr_df[f'{col} (eds; {key.lower()})'] = (
+#                 table.groupby('well')[col]
+#                      .apply(lambda x: x.iloc[0] if x.nunique() == 1 else x.tolist())
+#             )
 
 #     # Reset the index to merge on 'well'
 #     instr_df.reset_index(inplace=True)
 
 #     return instr_df
-
-def build_instr_df(instr_tables_dict: dict):
-    '''
-    Manipulates a dictionary object created in extract_instr_tables()
-    From the object the dataframes for ['Raw Data', 'Amplification Data', 'Multicomponent Data', 'Melt Curve Raw Data']
-    are manipulated into a single wideform flat dataframe where 1 well = 1 row. Cycling data is collapsed into lists on a per cell basis.
-    
-    This function will typically be used for merging with the mastertable so that raw values on a per reaction basis can be compared across experiments.
-    
-    Parameters
-    ----------
-    instr_tables_dict : dict
-        An object created by extract_instr_tables()
-        
-    Returns
-    ----------    
-    instr_df : pd.DataFrame
-        A single dataframe containing all values from tables
-        ['Raw Data', 'Amplification Data', 'Multicomponent Data', 'Melt Curve Raw Data'] (where present).
-    '''
-    # REQUIRED tables
-    required_keys = ['Raw Data', 'Amplification Data', 'Multicomponent Data']
-    # OPTIONAL tables
-    optional_keys = ['Melt Curve Raw Data']
-
-    # Fail only if a required table is missing
-    missing_required = [k for k in required_keys if k not in instr_tables_dict]
-    if missing_required:
-        raise KeyError(f"Missing required keys {', '.join(missing_required)}")
-
-    # Only include optional tables that actually exist
-    present_optional = [k for k in optional_keys if k in instr_tables_dict]
-
-    # Select the tables we actually have
-    relevant_keys = required_keys + present_optional
-    relevant_tables = {key: instr_tables_dict[key] for key in relevant_keys}
-    
-    # Prepare a new DataFrame to hold the flattened information
-    instr_df = pd.DataFrame()
-
-    for key, table in relevant_tables.items():
-        # Flatten each column into a list, or a single value if all values are identical
-        for col in table.columns:
-            instr_df[f'{col} (eds; {key.lower()})'] = (
-                table.groupby('well')[col]
-                     .apply(lambda x: x.iloc[0] if x.nunique() == 1 else x.tolist())
-            )
-
-    # Reset the index to merge on 'well'
-    instr_df.reset_index(inplace=True)
-
-    return instr_df
 
 # Usage
 # Build the instr_df with selected tables
@@ -1897,79 +1720,30 @@ def build_instr_df(instr_tables_dict: dict):
 #             path_key = data_folder / (row['path_key'] + '.txt')
 #             instr_dict = extract_instr_tables(path_key)
             
+#             # Keep the existing sanity check
 #             if len(instr_dict) != 8:
 #                 print('Warning: Not all instrument tables were exported. Open the QuantStudio .eds and re-export the .txt file below. This function will not complete if an eds export is incomplete.')
 #                 print(path_key)
-                
-#             # Select the relevant tables
-#             relevant_keys = ['Raw Data', 'Amplification Data', 'Multicomponent Data', 'Melt Curve Raw Data']
             
-#             missing_keys = [key for key in relevant_keys if key not in instr_dict]
+#             # REQUIRED tables
+#             required_keys = ['Raw Data', 'Amplification Data', 'Multicomponent Data']
+#             # OPTIONAL tables
+#             optional_keys = ['Melt Curve Raw Data']
             
-#             if missing_keys:
-#                 raise KeyError(f"Missing keys {', '.join(missing_keys)} in file {path_key}")
-                
+#             missing_required = [key for key in required_keys if key not in instr_dict]
+#             if missing_required:
+#                 raise KeyError(f"Missing required keys {', '.join(missing_required)} in file {path_key}")
+            
+#             # Log but do not fail if optional tables are missing
+#             missing_optional = [key for key in optional_keys if key not in instr_dict]
+#             if missing_optional:
+#                 print(f"Warning: missing optional keys {', '.join(missing_optional)} in file {path_key}")
+            
 #             instr_df = build_instr_df(instr_dict)
 #             instr_df['filepath_txt'] = str(row['path_key'] + '.txt')
 #             all_instr_dfs = pd.concat([all_instr_dfs, instr_df], axis=0)
 
 #     return all_instr_dfs
-
-def build_master_instr_df(df_pivot: pd.DataFrame, data_folder: Path):
-    '''
-    Accepts a pd.DataFrame reporting the file integrity status of experiments in the data_folder.
-    The dataframe is produced by the review_matched_filenames() function.
-    
-    When executed, build_master_instr_df() will iterate on every experiment with all requisite files and 
-    extract all Quantstudio .eds exported data from the tables ['Raw Data', 'Amplification Data', 
-    'Multicomponent Data', 'Melt Curve Raw Data'] of each experiment.
-    
-    Parameters
-    ----------
-    df_pivot : pd.DataFrame
-        A dataframe produced by review_matched_filenames()
-    
-    data_folder : Path
-        A pathlib object pointing to ProxiPal's /data folder
-        
-    Returns
-    ----------
-    all_instr_dfs : pd.DataFrame
-        Consolidates all .eds exported raw data from ProxiPal experiments into a single concatenated dataframe.
-        Adds column "filepath_txt" for each experiment so that, with "well" all instrument data can be merged onto the mastertable.
-    '''
-    
-    all_instr_dfs = pd.DataFrame()
-
-    for idx, row in df_pivot.iterrows():
-        if row['txt'] == True and row['csv'] == True:
-            path_key = data_folder / (row['path_key'] + '.txt')
-            instr_dict = extract_instr_tables(path_key)
-            
-            # Keep the existing sanity check
-            if len(instr_dict) != 8:
-                print('Warning: Not all instrument tables were exported. Open the QuantStudio .eds and re-export the .txt file below. This function will not complete if an eds export is incomplete.')
-                print(path_key)
-            
-            # REQUIRED tables
-            required_keys = ['Raw Data', 'Amplification Data', 'Multicomponent Data']
-            # OPTIONAL tables
-            optional_keys = ['Melt Curve Raw Data']
-            
-            missing_required = [key for key in required_keys if key not in instr_dict]
-            if missing_required:
-                raise KeyError(f"Missing required keys {', '.join(missing_required)} in file {path_key}")
-            
-            # Log but do not fail if optional tables are missing
-            missing_optional = [key for key in optional_keys if key not in instr_dict]
-            if missing_optional:
-                print(f"Warning: missing optional keys {', '.join(missing_optional)} in file {path_key}")
-            
-            instr_df = build_instr_df(instr_dict)
-            instr_df['filepath_txt'] = str(row['path_key'] + '.txt')
-            all_instr_dfs = pd.concat([all_instr_dfs, instr_df], axis=0)
-
-    return all_instr_dfs
 
 
 # Usage
@@ -6494,3 +6268,538 @@ def calculate_intraAssay_signal(mastertable,
 # plt.figure(e91_rox)
 # plt.title('e91 ROX mean; Quant B; cycles 0-10', loc='center', y=27)  # y > 1.0 moves it up
 # plt.show()
+
+def diomni_export_dict(path: Path) -> dict[Path, list[Path]]:
+    """
+    Detects Diomni-format txt exports under a base path.
+    Groups them by folder where all files share the same timestamp and valid userfilename.
+
+    Parameters
+    ----------
+    path : Path
+        Directory to recursively search.
+
+    Returns
+    -------
+    dict
+        Keys are folders (Path) containing Diomni exports.
+        Values are lists of .txt Paths from that folder.
+    """
+    pattern = re.compile(r"(?P<userfilename>.+)_(?P<datatype>Raw Data|Amplification Data|.+)_(?P<timestamp>\d{8}_\d{6})\.txt$")
+    group_dict = {}
+
+    for file in path.rglob("*.txt"):
+        match = pattern.match(file.name)
+        if not match:
+            continue
+        folder = file.parent
+        group_key = (folder, match.group("timestamp"))
+        if group_key not in group_dict:
+            group_dict[group_key] = []
+        group_dict[group_key].append(file)
+
+    valid_exports = {}
+
+    for (folder, timestamp), files in group_dict.items():
+        datatypes = [pattern.match(f.name).group("datatype") for f in files]
+        if "Raw Data" not in datatypes or "Amplification Data" not in datatypes:
+            continue
+        valid_exports[folder] = files
+
+    return valid_exports
+
+
+def extract_instr_params_diomni(files: list[Path]) -> pd.Series:
+    '''
+    Extracts instrument parameters from a list of Diomni TXT files.
+
+    Parameters
+    ----------
+    files : list[Path]
+        List of Diomni .txt export files.
+
+    Returns
+    -------
+    pd.Series
+        A pandas Series containing instrument parameters dynamically parsed.
+    '''
+    data_dict = {}
+
+    # Datetime patterns observed in Diomni exports
+    pattern_datetime = r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) (AM|PM) [A-Z]{2,5}$'
+    pattern_date_only = r'^\d{4}-\d{2}-\d{2}$'
+
+    for f in files:
+        with f.open('r', encoding='utf-8') as fh:
+            content = fh.read()
+            if '# File Name:' in content:
+                for line in content.splitlines():
+                    if not line.startswith('#'):
+                        continue
+                    line_clean = line.lstrip('#').strip()
+                    if ':' not in line_clean:
+                        continue
+                    key, value = line_clean.split(':', 1)
+                    key = key.strip().replace(' ', '_').lower()
+                    value = value.strip()
+                    if re.match(pattern_datetime, value):
+                        value = datetime.strptime(re.match(pattern_datetime, value).group(1), '%Y-%m-%d %H:%M:%S')
+                    elif re.match(pattern_date_only, value):
+                        value = datetime.strptime(value, '%Y-%m-%d')
+                    data_dict[key] = value
+                break
+
+    return pd.Series(data_dict)
+
+
+# def extract_instr_tables_diomni(any_file: Path) -> dict[str, pd.DataFrame]:
+#     '''
+#     Extracts all data tables from Diomni-format TXT files in a folder.
+#     Normalizes ragged rows to header width.
+#     '''
+#     directory = any_file.parent
+#     txt_files = list(directory.glob("*.txt"))
+
+#     pattern = re.compile(
+#         r"(?P<userfilename>.+)_(?P<datatype>.+)_(?P<timestamp>\d{8}_\d{6})\.txt$"
+#     )
+
+#     groups = {}
+#     for f in txt_files:
+#         m = pattern.match(f.name)
+#         if not m:
+#             continue
+#         ts = m.group("timestamp")
+#         groups.setdefault(ts, []).append((f, m.group("userfilename"), m.group("datatype")))
+
+#     if len(groups) != 1:
+#         print(f"\nFolder: {directory}")
+#         print("Error: Multiple Diomni export groups detected with different timestamps.")
+#         print("Please include only one set of Diomni .txt exports per folder.")
+#         return {}
+
+#     table_dict = {}
+#     group_files = next(iter(groups.values()))
+
+#     for file_path, userfilename, datatype in group_files:
+#         with file_path.open("r", encoding="utf-8") as f:
+#             lines = f.readlines()
+
+#         header_line = next((l for l in lines if l.startswith("# File Name:")), None)
+#         if not header_line:
+#             print(f"Missing '# File Name:' in {file_path.name}")
+#             return {}
+
+#         embedded = Path(header_line.split(":", 1)[1].strip()).stem
+#         if embedded != userfilename:
+#             print(f"Filename mismatch in {file_path.name}")
+#             return {}
+
+#         data_lines = [l for l in lines if not l.strip().startswith("#")]
+#         parsed = [
+#             [c.strip('"') for c in l.rstrip().split("\t")]
+#             for l in data_lines if l.strip()
+#         ]
+
+#         if len(parsed) < 2:
+#             continue
+
+#         header = [h.lower() for h in parsed[0]]
+#         rows = parsed[1:]
+
+#         # ---- FIX: normalize ragged rows ----
+#         width = len(header)
+#         for i, row in enumerate(rows):
+#             if len(row) < width:
+#                 rows[i] = row + [None] * (width - len(row))
+#             elif len(row) > width:
+#                 rows[i] = row[:width]
+#         # -----------------------------------
+
+#         df = pd.DataFrame(rows, columns=header)
+#         df = df.apply(pd.to_numeric, errors="ignore")
+
+#         table_dict[datatype] = df
+
+#     return table_dict
+
+def extract_instr_tables_diomni(any_file: Path) -> dict[str, pd.DataFrame]:
+    '''
+    Extracts all data tables from Diomni-format TXT files in a folder.
+    Normalizes ragged rows to header width. Validates consistency of embedded filenames and timestamp groupings.
+    '''
+    directory = any_file.parent
+    txt_files = list(directory.glob("*.txt"))
+
+    pattern = re.compile(
+        r"(?P<userfilename>.+)_(?P<datatype>.+)_(?P<timestamp>\d{8}_\d{6})\.txt$"
+    )
+
+    groups = {}
+    for f in txt_files:
+        m = pattern.match(f.name)
+        if not m:
+            continue
+        ts = m.group("timestamp")
+        groups.setdefault(ts, []).append((f, m.group("userfilename"), m.group("datatype")))
+
+    if len(groups) != 1:
+        print(f"\nFolder: {directory}")
+        print("Error: Multiple Diomni export groups detected with different timestamps.")
+        print("Please include only one set of Diomni .txt exports per folder.")
+        return {}
+
+    table_dict = {}
+    group_files = next(iter(groups.values()))
+
+    for file_path, userfilename, datatype in group_files:
+        with file_path.open("r", encoding="utf-8") as f:
+            lines = f.readlines()
+
+        header_line = next((l for l in lines if l.startswith("# File Name:")), None)
+        if not header_line:
+            print(f"Missing '# File Name:' in {file_path.name}")
+            return {}
+
+        embedded = Path(header_line.split(":", 1)[1].strip()).stem
+        if embedded != userfilename:
+            print(f"Filename mismatch in {file_path.name}")
+            return {}
+
+        data_lines = [l for l in lines if not l.strip().startswith("#")]
+        parsed = [
+            [c.strip('"') for c in l.rstrip().split("\t")]
+            for l in data_lines if l.strip()
+        ]
+
+        if len(parsed) < 2:
+            continue
+
+        header = [h.lower() for h in parsed[0]]
+        rows = parsed[1:]
+
+        width = len(header)
+        for i, row in enumerate(rows):
+            if len(row) < width:
+                rows[i] = row + [None] * (width - len(row))
+            elif len(row) > width:
+                rows[i] = row[:width]
+
+        df = pd.DataFrame(rows, columns=header)
+        df = df.apply(pd.to_numeric, errors="ignore")
+
+        table_dict[datatype] = df
+
+    return table_dict
+
+
+
+def merge_diomni_exports_to_txt(files: list[Path]) -> Path | None:
+    '''
+    Merges Diomni .txt export files into a synthetic QuantStudio-style .txt file
+    saved alongside the corresponding .eds file.
+
+    Parameters
+    ----------
+    files : list[Path]
+        List of Diomni TXT export files that share timestamp and userfilename.
+
+    Returns
+    -------
+    Path | None
+        Path to new .txt file saved alongside .eds, or None if aborted.
+    '''
+    if not files:
+        return None
+
+    # Infer userfilename from filename pattern
+    m = re.match(r"(?P<userfilename>.+)_.+_(\d{8}_\d{6})\.txt$", files[0].name)
+    if not m:
+        return None
+    userfilename = m.group("userfilename")
+
+    # Locate corresponding .eds using embedded header
+    eds_path = None
+    for f in files:
+        with f.open("r", encoding="utf-8") as fh:
+            for line in fh:
+                if line.startswith("# File Name:"):
+                    eds_path = Path(line.split(":", 1)[1].strip())
+                    break
+        if eds_path:
+            break
+
+    if not eds_path or not eds_path.name.endswith(".eds"):
+        print(f"Cannot locate .eds path for Diomni export group: {userfilename}")
+        return None
+
+    # Extract parameters and tables
+    instr_params = extract_instr_params_diomni(files)
+    table_dict = extract_instr_tables_diomni(files[0])
+
+    # Correct emptiness checks
+    if instr_params.empty or not table_dict:
+        return None
+
+    out_path = eds_path.with_suffix(".txt")
+
+    with out_path.open("w", encoding="utf-8") as out_file:
+        # Write instrument parameters
+        for key, val in instr_params.items():
+            val_str = (
+                val.strftime("%m-%d-%Y %H:%M:%S")
+                if isinstance(val, datetime)
+                else str(val)
+            )
+            formatted_key = key.replace("_", " ").title()
+            out_file.write(f"* {formatted_key} = {val_str}\n")
+
+        out_file.write("\n")
+
+        # Write tables
+        for table_name, df in table_dict.items():
+            out_file.write(f"[{table_name}]\n")
+            df.to_csv(out_file, sep="\t", index=False)
+            out_file.write("\n")
+
+    return out_path
+
+
+
+# def build_instr_df(instr_tables_dict: dict, mode: str = 'quantstudio') -> pd.DataFrame:
+#     '''
+#     Flattens instrument table data from extract_instr_tables() or extract_instr_tables_diomni()
+#     into a single DataFrame. Rows are per well. Columns are collapsed lists or scalar values.
+
+#     Parameters
+#     ----------
+#     instr_tables_dict : dict
+#         Dictionary of DataFrames, keyed by table name.
+
+#     mode : str
+#         Either 'quantstudio' or 'diomni'. In 'quantstudio' mode, required tables must be present.
+#         In 'diomni' mode, all available tables are processed dynamically.
+
+#     Returns
+#     -------
+#     pd.DataFrame
+#         Flattened instrument data with one row per well.
+#     '''
+#     if mode == 'quantstudio':
+#         required_keys = ['Raw Data', 'Amplification Data', 'Multicomponent Data']
+#         optional_keys = ['Melt Curve Raw Data']
+#         missing_required = [k for k in required_keys if k not in instr_tables_dict]
+#         if missing_required:
+#             raise KeyError(f"Missing required keys {', '.join(missing_required)}")
+#         present_keys = required_keys + [k for k in optional_keys if k in instr_tables_dict]
+#     elif mode == 'diomni':
+#         present_keys = list(instr_tables_dict.keys())
+#     else:
+#         raise ValueError("mode must be 'quantstudio' or 'diomni'")
+
+#     instr_df = pd.DataFrame()
+
+#     for key in present_keys:
+#         table = instr_tables_dict[key]
+#         for col in table.columns:
+#             if 'well' not in table.columns:
+#                 raise KeyError(f"'well' column missing in table '{key}'")
+#             instr_df[f'{col} (eds; {key.lower()})'] = (
+#                 table.groupby('well')[col]
+#                      .apply(lambda x: x.iloc[0] if x.nunique() == 1 else x.tolist())
+#             )
+
+#     instr_df.reset_index(inplace=True)
+#     return instr_df
+
+def build_instr_df(instr_tables_dict: dict, mode: str = 'quantstudio') -> pd.DataFrame:
+    '''
+    Flattens instrument table data from extract_instr_tables() or extract_instr_tables_diomni()
+    into a single DataFrame. Rows are per well. Columns are collapsed lists or scalar values.
+
+    Parameters
+    ----------
+    instr_tables_dict : dict
+        Dictionary of DataFrames, keyed by table name.
+
+    mode : str
+        Either 'quantstudio' or 'diomni'. In 'quantstudio' mode, required tables must be present.
+        In 'diomni' mode, all available tables are processed dynamically, skipping those without 'well'.
+
+    Returns
+    -------
+    pd.DataFrame
+        Flattened instrument data with one row per well.
+    '''
+    if mode == 'quantstudio':
+        required_keys = ['Raw Data', 'Amplification Data', 'Multicomponent Data']
+        optional_keys = ['Melt Curve Raw Data']
+        missing_required = [k for k in required_keys if k not in instr_tables_dict]
+        if missing_required:
+            raise KeyError(f"Missing required keys {', '.join(missing_required)}")
+        present_keys = required_keys + [k for k in optional_keys if k in instr_tables_dict]
+    elif mode == 'diomni':
+        present_keys = list(instr_tables_dict.keys())
+    else:
+        raise ValueError("mode must be 'quantstudio' or 'diomni'")
+
+    instr_df = pd.DataFrame()
+
+    for key in present_keys:
+        table = instr_tables_dict[key]
+        if 'well' not in table.columns:
+            continue
+        for col in table.columns:
+            instr_df[f'{col} (eds; {key.lower()})'] = (
+                table.groupby('well')[col]
+                     .apply(lambda x: x.iloc[0] if x.nunique() == 1 else x.tolist())
+            )
+
+    instr_df.reset_index(inplace=True)
+    return instr_df
+
+
+
+# Usage
+# Build the instr_df with selected tables
+# MRFF2_df = build_instr_df(MRFF2_dict)
+# Add in an identifier column if planning to merge on mastertable
+# MRFF2_df['filepath_txt'] = '230324_MRFF_e2_kruti/230410/Plate 2_NfL_MRFF_Dhama Plasma 21s to 40s.txt'
+
+def build_master_instr_df(df_pivot: pd.DataFrame, data_folder: Path) -> pd.DataFrame:
+    '''
+    Extracts instrument data from .txt files identified in df_pivot and combines into one table.
+
+    Detects Diomni vs QuantStudio format and calls appropriate flattening logic.
+
+    Parameters
+    ----------
+    df_pivot : pd.DataFrame
+        Output from review_matched_filenames()
+
+    data_folder : Path
+        Base path to /data directory
+
+    Returns
+    -------
+    pd.DataFrame
+        Concatenated instrument data from all experiments.
+    '''
+    all_instr_dfs = pd.DataFrame()
+
+    for idx, row in df_pivot.iterrows():
+        if row['txt'] and row['csv']:
+            path_key_txt = data_folder / (row['path_key'] + '.txt')
+
+            try:
+                with path_key_txt.open('r', encoding='utf-8') as f:
+                    lines = f.readlines()
+            except Exception as e:
+                print(f"Cannot open file: {path_key_txt}. Error: {e}")
+                continue
+
+            # Detect table headers
+            headers = [line.strip()[1:-1] for line in lines if line.strip().startswith('[')]
+            diomni_specific = {'Standard Curve Result', 'Replicate Group Result'}
+            format_type = 'diomni' if diomni_specific.intersection(headers) else 'quantstudio'
+
+            if format_type == 'quantstudio':
+                instr_dict = extract_instr_tables(path_key_txt)
+                if len(instr_dict) != 8:
+                    print('Warning: Not all QuantStudio instrument tables were exported:')
+                    print(path_key_txt)
+
+                required_keys = ['Raw Data', 'Amplification Data', 'Multicomponent Data']
+                optional_keys = ['Melt Curve Raw Data']
+                missing_required = [k for k in required_keys if k not in instr_dict]
+                if missing_required:
+                    raise KeyError(f"Missing required keys {', '.join(missing_required)} in file {path_key_txt}")
+
+                missing_optional = [k for k in optional_keys if k not in instr_dict]
+                if missing_optional:
+                    print(f"Warning: missing optional keys {', '.join(missing_optional)} in file {path_key_txt}")
+
+            else:
+                instr_dict = extract_instr_tables(path_key_txt)
+
+            try:
+                instr_df = build_instr_df(instr_dict, mode=format_type)
+                instr_df['filepath_txt'] = str(row['path_key'] + '.txt')
+                all_instr_dfs = pd.concat([all_instr_dfs, instr_df], axis=0)
+            except Exception as e:
+                print(f"Failed to process {path_key_txt} ({format_type}): {e}")
+
+    return all_instr_dfs
+
+# Usage
+# master_instr_df = build_master_instr_df(df_pivot, data_folder)
+# To merge on mastertable
+# mastertable_updated = pd.merge(mastertable, master_instr_df, how='inner', on=['well', 'filepath_txt'])
+
+def find_matched_filenames(path: Path, native_format: str = '.eds', export_format: str = '.txt', read_export: bool = True) -> Tuple[list, dict]:
+    '''
+    Identifies different file types with the same stem from a directory path and all its subdirectories.
+
+    Parameters
+    ----------
+    path : Path
+        A pathlib object that represents the directory path to search.
+    native_format : str, optional
+        A string that specifies the native file format to search for. Default is '.eds'.
+    export_format : str, optional
+        A string that specifies the export file format to search for. Default is '.txt'.
+    read_export : bool, optional
+        A boolean flag that specifies whether to read the contents of the export files. If True (default),
+        the function returns a dictionary with file paths and contents. If False, the function returns
+        a dummy dictionary with an 'empty' key and a message.
+
+    Returns
+    -------
+    tuple
+        A tuple containing two items:
+        - export_file_list: a list of name-matched export files as pathlib objects
+        - export_dict: a dictionary with export file paths and contents (if read_export is True)
+                       or a dummy dictionary with a message (if read_export is False)
+    '''
+    native_file_list = list(path.glob('**/*' + native_format))
+    export_file_list = [p.with_suffix(export_format) for p in native_file_list]
+
+    export_dict = {}
+
+    for i, export_file in enumerate(export_file_list):
+        if export_format == '.txt' and not export_file.exists():
+            subfolder = export_file.parent
+            diomni_groups = diomni_export_dict(subfolder)
+
+            for group_path, diomni_files in diomni_groups.items():
+                eds_stem = export_file.stem
+                if eds_stem in str(diomni_files[0]):
+                    result_path = merge_diomni_exports_to_txt(diomni_files)
+                    if result_path and result_path.exists():
+                        export_file_list[i] = result_path
+                    break
+
+    if read_export:
+        for file_path in export_file_list:
+            try:
+                if not file_path.is_file():
+                    print(f"File not found: {file_path}")
+                    continue
+                if export_format == '.txt':
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    export_dict[get_file_and_parents(file_path)] = content
+                elif export_format == '.csv':
+                    export_dict[get_file_and_parents(file_path)] = pd.read_csv(file_path, header=None)
+            except PermissionError:
+                print(f"Insufficient permissions to read file: {file_path}")
+            except Exception as e:
+                print(f"Error reading file {file_path}: {e}")
+    else:
+        export_dict['empty'] = 'User has specified "read_export = False" when calling function find_matched_filenames().'
+
+    return export_file_list, export_dict
+
+#### USAGE:
+# eds2txt_match_list, eds2txt_match_dict = find_matched_filenames(base_path, read_export = True)
+# eds2csv_match_list, eds2csv_match_dict = find_matched_filenames(base_path, native_format = '.eds', export_format = '.csv', read_export = True)

@@ -1,0 +1,26 @@
+# File Name: C:\Users\smith.j\OneDrive - wehi.edu.au\Documents\Testing-Git\proxipal\app\data\251110_iPLA_NfLplasma_demo2\251112\251110_iPLA_NfLplasma_demo2.eds
+# Comment: 
+# Operator: DEFAULT
+# Barcode: 
+# Instrument Type: QuantStudio™ 5 System
+# Block Type: 96-Well 0.1-mL Block
+# Instrument Name: 272513413
+# Instrument Serial Number: 272513413
+# Heated Cover Serial Number:
+# Block serial number: 21125672
+# Run Start Date/Time: 2025-11-12 07:37:23 PM AEDT
+# Run End Data/Time: 2025-11-12 08:42:03 PM AEDT
+# Run Duration: 64 minutes 39 seconds
+# Sample Volume: 20.0
+# Cover Temperature: 105.0
+# Passive Reference: ROX
+# PCR Stage/Step Number: Stage 2 Step 2
+# Melt Stage Number: 3
+# Quantification Cycle Method: CT
+# Analysis Date/Time: 2025-12-17 03:45:32 PM AEDT
+# Software Name and Version: Design & Analysis Software v3.0.1
+# Plugin Name and Version: Primary Analysis v1.9.0, Standard Curve v1.8.1
+# Reduce dye signal crosstalk by algorithm: No (Default)
+# Exported On: 2025-12-17 03:45:52 PM AEDT
+"Sample"	"Target"	"Number of Replicates"	"Quantity"	"Number of Cqs"	"Cq Mean"	"Cq SD"	"Cq SE"	"Biogroup"
+"Sample 1"	"Target 1"	"96"	"-"	"0"	"24.45756170655361"	"2.5964695479533315"	"0.26500106354835673"	
