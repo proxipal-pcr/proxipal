@@ -73,7 +73,7 @@ ProxiPal is designed to support collaboration between **coding and non-coding us
 This structure has two important implications:
 
 - Administrators can apply **OS-level permissions** (by user or group) to sensitive subfolders (for example, samples or restricted data).
-- Users can run `git clone` and re-run the setup script against **existing, populated directories** to stay up to date with the code without disturbing their data.
+- Users can run `git pull` and even re-run the setup script from **pre-existing, populated directories** to stay up to date with the code without disturbing their data.
 
 Because the repository includes **demo data and sample folders** (e.g. under `data/` and `samples/`), cloning the repository may reset folder permissions.  
 If permissions are important in your environment, they should be reinstated after cloning.
