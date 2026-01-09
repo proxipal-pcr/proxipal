@@ -169,69 +169,6 @@ def get_file_and_parents(file_path: Path, num_parents: int = 2) -> str:
     return destination
 
 
-def find_matched_filenames(path: Path, native_format: str = '.eds', export_format: str = '.txt', read_export: bool = True) -> tuple:
-    '''
-    Identifies different file types with the same stem from a directory path and all its subdirectories.
-
-    Parameters
-    ----------
-    path : Path
-        A pathlib object that represents the directory path to search.
-    native_format : str, optional
-        A string that specifies the native file format to search for. Default is '.eds'.
-    export_format : str, optional
-        A string that specifies the export file format to search for. Default is '.txt'.
-    read_export : bool, optional
-        A boolean flag that specifies whether to read the contents of the export files. If True (default), the function returns a dictionary with file paths and contents. If False, the function returns a dummy dictionary with an 'empty' key and a message.
-
-    Returns
-    -------
-    tuple
-        A tuple containing two items:
-        - export_file_list: a list of name-matched export files as pathlib objects
-        - export_dict: a dictionary with export file paths and contents (if read_export is True) or a dummy dictionary with a message (if read_export is False)
-
-    '''
-    # Get a list of all the native files in the directory and its subdirectories
-    native_file_list = []
-    for f in Path(path).glob('**/*' + native_format):
-        native_file_list.append(f)
-
-    # Get a list of all the export files with the same stem as the native files
-    export_file_list = [p.with_suffix(export_format) for p in native_file_list]
-
-    # Read the contents of the export files and store them in a dictionary
-    export_dict = {}
-    if read_export == True:
-        for file_path in export_file_list:
-            try:
-                # Check if the file exists
-                if not file_path.is_file():
-                    print(f"File not found: {file_path}")
-                    continue
-                
-                # Reading the file based on its format
-                if export_format == '.txt':
-                    with open(file_path, 'r') as file:
-                        file_contents = file.read()
-                        export_dict[get_file_and_parents(file_path)] = file_contents
-                        
-                elif export_format == '.csv':
-                    export_dict[get_file_and_parents(file_path)] = pd.read_csv(file_path, header=None)
-
-            except PermissionError:
-                print(f"Insufficient permissions to read file: {file_path}")
-            except Exception as e:
-                print(f"Error reading file {file_path}: {e}")
-
-    # If read_export is False, return a dummy dictionary with a message
-    elif read_export == False:
-        export_dict['empty'] = 'User has specified "read_export = False" when calling function find_matched_filenames().'
-    
-    # Return the export file list and dictionary
-    return export_file_list, export_dict
-
-
 def review_matched_filenames(eds2txt_match_dict, eds2csv_match_dict):
     
     file_paths = list(eds2txt_match_dict.keys()) + list(eds2csv_match_dict.keys())
@@ -265,11 +202,6 @@ def review_matched_filenames(eds2txt_match_dict, eds2csv_match_dict):
     df_review = df_pivot[['experiment', 'analysis', 'eds filename', 'txt', 'csv', 'path_key']]
     
     return df_review
-
-
-#### USAGE:
-# eds2txt_match_list, eds2txt_match_dict = find_matched_filenames(base_path, read_export = True)
-# eds2csv_match_list, eds2csv_match_dict = find_matched_filenames(base_path, native_format = '.eds', export_format = '.csv', read_export = True)
 
 
 def extract_instr_params(string_value: str) -> pd.Series:
@@ -1523,90 +1455,19 @@ def create_master_table(match_type: str = 'TS') -> dict:
     
     return master_dict
 
-# def batch_py_metatables(eds2txt_match_dict: dict, eds2csv_match_dict: dict) -> None:
-#     """
-#     Given two dictionaries that match EDS files to txt and csv files respectively, this function
-#     processes each matched file set in a batch.
 
-#     :param eds2txt_match_dict: dictionary that maps EDS files to txt files.
-#     :param eds2csv_match_dict: dictionary that maps EDS files to csv files.
-
-#     The function iterates over each file set, checks if the txt and csv files exist for the path_key,
-#     and if they do, it tries to create a data metatable and calculate standard deviations using linear regression.
-#     If the files don't exist or if the processing fails due to FileNotFoundError, an appropriate message is printed.
-#     """
-    
-#     # Generate pivot dataframe from the matched filenames
-#     df_pivot = review_matched_filenames(eds2txt_match_dict, eds2csv_match_dict)
-    
-#     # Iterate over the 'path_key' list
-#     for path in df_pivot['path_key'].tolist():
-#         # Check if both 'txt' and 'csv' files exist for the given 'path_key'
-#         if (df_pivot.loc[df_pivot['path_key'] == path, ['txt', 'csv']].all(axis=1)).any():
-#             try:
-#                 # If they exist, try to create a data metatable and calculate standard deviations
-#                 create_data_metatable(eds2txt_match_dict, eds2csv_match_dict, path)                
-#                 path_csv = data_folder / (path + '.csv')
-#                 path_metatable = path_csv.parent / 'exports/metatable.csv'
-#                 metatable = pd.read_csv(path_metatable, low_memory = False)
-#                 calc_py_metatable_all_models(metatable, rdml_check=True, export=True)
-#                 print(path, 'processed')
-#             except FileNotFoundError:
-#                 # If processing fails, print an error message
-#                 print(path, 'create_data_metatable() or calc_metatable_std_lin_reg() failed')
-#         else:
-#             # If 'txt' and 'csv' files do not exist, print an error message
-#             print(path, 'is missing, or mislabeled, an eds, txt, or csv file and cannot be processed')
-            
-#     return None
-
-# def batch_py_metatables(eds2txt_match_dict: dict, eds2csv_match_dict: dict) -> None:
-#     """
-#     Given two dictionaries that match EDS files to txt and csv files respectively, this function
-#     processes each matched file set in a batch.
-#     :param eds2txt_match_dict: dictionary that maps EDS files to txt files.
-#     :param eds2csv_match_dict: dictionary that maps EDS files to csv files.
-#     The function iterates over each file set, checks if the txt and csv files exist for the path_key,
-#     and if they do, it tries to create a data metatable and calculate standard deviations using linear regression.
-#     If the files don't exist or if the processing fails due to FileNotFoundError, an appropriate message is printed.
-#     """
-    
-#     # Generate pivot dataframe from the matched filenames
-#     df_pivot = review_matched_filenames(eds2txt_match_dict, eds2csv_match_dict)
-    
-#     # Iterate over the 'path_key' list
-#     for path in df_pivot['path_key'].tolist():
-#         # Check if both 'txt' and 'csv' files exist for the given 'path_key'
-#         if (df_pivot.loc[df_pivot['path_key'] == path, ['txt', 'csv']].all(axis=1)).any():
-#             try:
-#                 # If they exist, try to create a data metatable and calculate standard deviations
-#                 create_data_metatable(eds2txt_match_dict, eds2csv_match_dict, path)                
-#                 path_csv = data_folder / (path + '.csv')
-#                 path_metatable = path_csv.parent / 'exports/metatable.csv'
-#                 metatable = pd.read_csv(path_metatable, low_memory = False)
-                
-#                 # Suppress print statements from calc_py_metatable_all_models
-#                 with contextlib.redirect_stdout(io.StringIO()):
-#                     calc_py_metatable_all_models(metatable, rdml_check=True, export=True)
-#                 print(path, 'processed')
-#             except FileNotFoundError:
-#                 # If processing fails, print an error message
-#                 print(path, 'create_data_metatable() or calc_py_metatable_all_models() failed')
-#         else:
-#             # If 'txt' and 'csv' files do not exist, print an error message
-#             print(path, 'is missing, or mislabeled, an eds, txt, or csv file and cannot be processed')
-            
-#     return None
-
-def batch_py_metatables(eds2txt_match_dict: dict, eds2csv_match_dict: dict, df_pivot_slice: str = None) -> None:
+def batch_py_metatables(eds2txt_match_dict: dict, eds2csv_match_dict: dict, 
+                        df_pivot_slice: str = None, calc_all_models: bool = True) -> None:
     """
     Given two dictionaries that match EDS files to txt and csv files respectively, this function
     processes each matched file set in a batch.
-    :param eds2txt_match_dict: dictionary that maps EDS files to txt files.
-    :param eds2csv_match_dict: dictionary that maps EDS files to csv files.
-    :param df_pivot_slice: optional string to specify which slice of df_pivot to process.
+    eds2txt_match_dict: dictionary that maps EDS files to txt files.
+    eds2csv_match_dict: dictionary that maps EDS files to csv files.
+    df_pivot_slice: optional string to specify which slice of df_pivot to process.
                          Format: 'start:end' or 'start:' (e.g., '15:18' or '15:')
                          If None, processes all rows.
+    calc_all_models: Will fit all models from calc_py_metatable_all_models() against many conditions. 
+    WARNING. These calculations can lead to vey long processing times ~10min per experiment.
     
     The function iterates over each file set, checks if the txt and csv files exist for the path_key,
     and if they do, it tries to create a data metatable and calculate standard deviations using linear regression.
@@ -1641,9 +1502,11 @@ def batch_py_metatables(eds2txt_match_dict: dict, eds2csv_match_dict: dict, df_p
                 path_metatable = path_csv.parent / 'exports/metatable.csv'
                 metatable = pd.read_csv(path_metatable, low_memory = False)
                 
-                # Suppress print statements from calc_py_metatable_all_models
-                with contextlib.redirect_stdout(io.StringIO()):
-                    calc_py_metatable_all_models(metatable, rdml_check=True, export=True)
+                if calc_all_models:
+                    # Suppress print statements from calc_py_metatable_all_models
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        calc_py_metatable_all_models(metatable, rdml_check=True, export=True)
+                        
                 print(path, 'processed')
             except FileNotFoundError:
                 # If processing fails, print an error message
@@ -1662,7 +1525,6 @@ def batch_py_metatables(eds2txt_match_dict: dict, eds2csv_match_dict: dict, df_p
 
 # # Process from index 15 to the end
 # batch_py_metatables(eds2txt_match_dict, eds2csv_match_dict, df_pivot_slice='15:')
-
 
 def extract_instr_tables(path: Path):
     '''  
@@ -1767,40 +1629,58 @@ def extract_instr_tables(path: Path):
 # MRFF2_eds = data_folder / '230324_MRFF_e2_kruti' / '230410' / 'Plate 2_NfL_MRFF_Dhama Plasma 21s to 40s.txt'
 # MRFF2_dict = extract_instr_tables(MRFF2_eds)
 
-def build_instr_df(instr_tables_dict: dict):
-    '''
-    Manipulates a dictionary object created in extract_instr_tables()
-    From the object the dataframes for ['Raw Data', 'Amplification Data', 'Multicomponent Data', 'Melt Curve Raw Data']
-    are manipulated into a single wideform flat dataframe where 1 well = 1 row. Cycling data is collapsed into lists on a per cell basis.
+
+# def build_instr_df(instr_tables_dict: dict):
+#     '''
+#     Manipulates a dictionary object created in extract_instr_tables()
+#     From the object the dataframes for ['Raw Data', 'Amplification Data', 'Multicomponent Data', 'Melt Curve Raw Data']
+#     are manipulated into a single wideform flat dataframe where 1 well = 1 row. Cycling data is collapsed into lists on a per cell basis.
     
-    This function will typically be used for merging with the mastertable so that raw values on a per reaction basis can be compared across experiments.
+#     This function will typically be used for merging with the mastertable so that raw values on a per reaction basis can be compared across experiments.
     
-    Parameters
-    ----------
-    instr_tables_dict : dict
-        An obect created by extract_instr_tables()
+#     Parameters
+#     ----------
+#     instr_tables_dict : dict
+#         An object created by extract_instr_tables()
         
-    Returns
-    ----------    
-    instr_df : pd.DataFrame
-        A single dataframe contain all values from tables ['Raw Data', 'Amplification Data', 'Multicomponent Data', 'Melt Curve Raw Data']
-    '''
-    # Select the relevant tables
-    relevant_keys = ['Raw Data', 'Amplification Data', 'Multicomponent Data', 'Melt Curve Raw Data']
-    relevant_tables = {key: instr_tables_dict[key] for key in relevant_keys}
+#     Returns
+#     ----------    
+#     instr_df : pd.DataFrame
+#         A single dataframe containing all values from tables
+#         ['Raw Data', 'Amplification Data', 'Multicomponent Data', 'Melt Curve Raw Data'] (where present).
+#     '''
+#     # REQUIRED tables
+#     required_keys = ['Raw Data', 'Amplification Data', 'Multicomponent Data']
+#     # OPTIONAL tables
+#     optional_keys = ['Melt Curve Raw Data']
+
+#     # Fail only if a required table is missing
+#     missing_required = [k for k in required_keys if k not in instr_tables_dict]
+#     if missing_required:
+#         raise KeyError(f"Missing required keys {', '.join(missing_required)}")
+
+#     # Only include optional tables that actually exist
+#     present_optional = [k for k in optional_keys if k in instr_tables_dict]
+
+#     # Select the tables we actually have
+#     relevant_keys = required_keys + present_optional
+#     relevant_tables = {key: instr_tables_dict[key] for key in relevant_keys}
     
-    # Prepare a new DataFrame to hold the flattened information
-    instr_df = pd.DataFrame()
+#     # Prepare a new DataFrame to hold the flattened information
+#     instr_df = pd.DataFrame()
 
-    for key, table in relevant_tables.items():
-        # Flatten each column into a list, or a single value if all values are identical
-        for col in table.columns:
-            instr_df[f'{col} (eds; {key.lower()})'] = table.groupby('well')[col].apply(lambda x: x.iloc[0] if x.nunique() == 1 else x.tolist())
+#     for key, table in relevant_tables.items():
+#         # Flatten each column into a list, or a single value if all values are identical
+#         for col in table.columns:
+#             instr_df[f'{col} (eds; {key.lower()})'] = (
+#                 table.groupby('well')[col]
+#                      .apply(lambda x: x.iloc[0] if x.nunique() == 1 else x.tolist())
+#             )
 
-    # Reset the index to merge on 'well'
-    instr_df.reset_index(inplace=True)
+#     # Reset the index to merge on 'well'
+#     instr_df.reset_index(inplace=True)
 
-    return instr_df
+#     return instr_df
 
 # Usage
 # Build the instr_df with selected tables
@@ -1809,54 +1689,62 @@ def build_instr_df(instr_tables_dict: dict):
 # MRFF2_df['filepath_txt'] = '230324_MRFF_e2_kruti/230410/Plate 2_NfL_MRFF_Dhama Plasma 21s to 40s.txt'
 
 
-def build_master_instr_df(df_pivot: pd.DataFrame, data_folder: Path):
-    '''
-    Accepts a pd.DataFrame reporting the file integrity status of experiments in the data_folder.
-    The dataframe is produced by the review_matched_filenames() function.
+# def build_master_instr_df(df_pivot: pd.DataFrame, data_folder: Path):
+#     '''
+#     Accepts a pd.DataFrame reporting the file integrity status of experiments in the data_folder.
+#     The dataframe is produced by the review_matched_filenames() function.
     
-    When executed, build_master_instr_df() will iterate on every experiment with all requisite files and 
-    extract all Quantstudio .eds exported data from the tables ['Raw Data', 'Amplification Data', 
-    'Multicomponent Data', 'Melt Curve Raw Data'] of each experiment.
+#     When executed, build_master_instr_df() will iterate on every experiment with all requisite files and 
+#     extract all Quantstudio .eds exported data from the tables ['Raw Data', 'Amplification Data', 
+#     'Multicomponent Data', 'Melt Curve Raw Data'] of each experiment.
     
-    Parameters
-    ----------
-    df_pivot : pd.DataFrame
-        A dataframe produced by review_matched_filenames()
+#     Parameters
+#     ----------
+#     df_pivot : pd.DataFrame
+#         A dataframe produced by review_matched_filenames()
     
-    data_folder : Path
-        A pathlib object pointing to ProxiPal's /data folder
+#     data_folder : Path
+#         A pathlib object pointing to ProxiPal's /data folder
         
-    Returns
-    ----------
-    all_instr_dfs : pd.DataFrame
-        Consolidates all .eds exported raw data from ProxiPal experiments into a single concatenated dataframe.
-        Adds column "filepath_txt" for each experiment so that, with "well" all instrument data can be merged onto the mastertable.
-    '''
+#     Returns
+#     ----------
+#     all_instr_dfs : pd.DataFrame
+#         Consolidates all .eds exported raw data from ProxiPal experiments into a single concatenated dataframe.
+#         Adds column "filepath_txt" for each experiment so that, with "well" all instrument data can be merged onto the mastertable.
+#     '''
     
-    all_instr_dfs = pd.DataFrame()
+#     all_instr_dfs = pd.DataFrame()
 
-    for idx, row in df_pivot.iterrows():
-        if row['txt'] == True and row['csv'] == True:
-            path_key = data_folder / (row['path_key'] + '.txt')
-            instr_dict = extract_instr_tables(path_key)
+#     for idx, row in df_pivot.iterrows():
+#         if row['txt'] == True and row['csv'] == True:
+#             path_key = data_folder / (row['path_key'] + '.txt')
+#             instr_dict = extract_instr_tables(path_key)
             
-            if len(instr_dict) != 8:
-                print('Warning: Not all instrument tables were exported. Open the QuantStudio .eds and re-export the .txt file below. This function will not complete if an eds export is incomplete.')
-                print(path_key)
-                
-            # Select the relevant tables
-            relevant_keys = ['Raw Data', 'Amplification Data', 'Multicomponent Data', 'Melt Curve Raw Data']
+#             # Keep the existing sanity check
+#             if len(instr_dict) != 8:
+#                 print('Warning: Not all instrument tables were exported. Open the QuantStudio .eds and re-export the .txt file below. This function will not complete if an eds export is incomplete.')
+#                 print(path_key)
             
-            missing_keys = [key for key in relevant_keys if key not in instr_dict]
+#             # REQUIRED tables
+#             required_keys = ['Raw Data', 'Amplification Data', 'Multicomponent Data']
+#             # OPTIONAL tables
+#             optional_keys = ['Melt Curve Raw Data']
             
-            if missing_keys:
-                raise KeyError(f"Missing keys {', '.join(missing_keys)} in file {path_key}")
-                
-            instr_df = build_instr_df(instr_dict)
-            instr_df['filepath_txt'] = str(row['path_key'] + '.txt')
-            all_instr_dfs = pd.concat([all_instr_dfs, instr_df], axis=0)
+#             missing_required = [key for key in required_keys if key not in instr_dict]
+#             if missing_required:
+#                 raise KeyError(f"Missing required keys {', '.join(missing_required)} in file {path_key}")
+            
+#             # Log but do not fail if optional tables are missing
+#             missing_optional = [key for key in optional_keys if key not in instr_dict]
+#             if missing_optional:
+#                 print(f"Warning: missing optional keys {', '.join(missing_optional)} in file {path_key}")
+            
+#             instr_df = build_instr_df(instr_dict)
+#             instr_df['filepath_txt'] = str(row['path_key'] + '.txt')
+#             all_instr_dfs = pd.concat([all_instr_dfs, instr_df], axis=0)
 
-    return all_instr_dfs
+#     return all_instr_dfs
+
 
 # Usage
 # master_instr_df = build_master_instr_df(df_pivot, data_folder)
@@ -2144,31 +2032,82 @@ def join_unique(x):
 def add_py_known_conc(df):
     """
     Add concentration-related columns to the metadata DataFrame.
+
+    This version:
+    - Extracts concentrations from sample_id strings like 'std1[100]_...'
+    - Prints a warning for non-string or missing sample_id values, reporting their index and value
+    - Suggests that users assign text-based sample_id values (not numeric or NaN)
+    - Keeps py_known_conc == 0 (does NOT replace with NaN)
+    - Only replaces zeros with NaN when computing log10 (to avoid -inf)
     """
     df = df.copy()
-    
+
     # Add py_known_conc column if not present
     if 'py_known_conc' not in df.columns:
         conc_list = []
         pattern_std = r"std\d+\[(.*?)\]_"
-        for s in df['sample_id'].tolist():
+
+        for idx, s in enumerate(df['sample_id']):
+            # Skip NaN or non-string sample_id values, report them
+            if pd.isna(s) or not isinstance(s, str):
+                print(f"⚠️  Warning: Row {idx} has invalid sample_id = {s!r}. "
+                      f"Each sample_id should be a text label, not numeric or N/A.")
+                conc_list.append(np.nan)
+                continue
+
+            # Try to extract concentration value from string pattern
             match = re.search(pattern_std, s)
             if match:
-                conc_list.append(float(match.group(1)))
+                try:
+                    conc_list.append(float(match.group(1)))
+                except ValueError:
+                    print(f"⚠️  Warning: Row {idx} sample_id = {s!r} "
+                          f"contains a non-numeric concentration inside brackets.")
+                    conc_list.append(np.nan)
             else:
                 conc_list.append(np.nan)
-        
+
         df['py_known_conc'] = conc_list
-    
-    # Add py_known_conc_log10 column if not present    
+
+    # Add py_known_conc_log10 column if not present
     if 'py_known_conc_log10' not in df.columns:
-        # Create a temporary series for log transformation, keeping original py_known_conc intact
         temp_conc = df['py_known_conc'].copy()
-        temp_conc = temp_conc.replace({0: np.nan})  # Only replace zeros for log calculation
+        temp_conc = temp_conc.replace({0: np.nan})  # avoid log10(0)
         log10_py_known_conc = np.log10(temp_conc)
-        df['py_known_conc_log10'] = np.where(np.isinf(log10_py_known_conc), np.nan, log10_py_known_conc)
+        df['py_known_conc_log10'] = np.where(np.isinf(log10_py_known_conc),
+                                             np.nan, log10_py_known_conc)
 
     return df
+
+
+# def add_py_known_conc(df):
+#     """
+#     Add concentration-related columns to the metadata DataFrame.
+#     """
+#     df = df.copy()
+    
+#     # Add py_known_conc column if not present
+#     if 'py_known_conc' not in df.columns:
+#         conc_list = []
+#         pattern_std = r"std\d+\[(.*?)\]_"
+#         for s in df['sample_id'].tolist():
+#             match = re.search(pattern_std, s)
+#             if match:
+#                 conc_list.append(float(match.group(1)))
+#             else:
+#                 conc_list.append(np.nan)
+        
+#         df['py_known_conc'] = conc_list
+    
+#     # Add py_known_conc_log10 column if not present    
+#     if 'py_known_conc_log10' not in df.columns:
+#         # Create a temporary series for log transformation, keeping original py_known_conc intact
+#         temp_conc = df['py_known_conc'].copy()
+#         temp_conc = temp_conc.replace({0: np.nan})  # Only replace zeros for log calculation
+#         log10_py_known_conc = np.log10(temp_conc)
+#         df['py_known_conc_log10'] = np.where(np.isinf(log10_py_known_conc), np.nan, log10_py_known_conc)
+
+#     return df
 
 
 # def extract_experiment_tables(df, filepath_csv, quant_model='SLR', threshold_type='ct', 
@@ -3485,6 +3424,10 @@ def plot_interassay_drift(drift_table):
 def analyse_imprecision(dataframe: pd.DataFrame, columns_to_analyse: list, 
                         grubbs_test: str = 'intra/inter', grubbs_remove: bool = True) -> pd.DataFrame:
     """
+    analyse_imprecision() → performs intra-assay and inter-assay CV analysis. It explicitly distinguishes within-assay (repeated measures in a single run) and 
+    between-assay (averages across runs) variability. Uses grouping by sample_id, tube_id, and filepath_csv to compute separate CVs at both hierarchical levels.
+    
+    
     analyse_imprecision() takes a user-curated dataframe with ProxiPal data structure, i.e.
     'sample_id', 'filepath_csv', 'expt_folder_csv', 'analysis_folder_csv'. Such dataframes are typically produced as 
     megatables or metatables in ProxiPal. Curation of the input dataframe should be considered prior to using
@@ -3523,6 +3466,12 @@ def analyse_imprecision(dataframe: pd.DataFrame, columns_to_analyse: list,
     Returns:
         pd.DataFrame: A dataframe containing the imprecision analysis results for each sample.
     """
+
+    # Ensure only numeric, non-NaN data in columns to analyse
+    dataframe = dataframe.copy()
+    for col in columns_to_analyse:
+        dataframe[col] = pd.to_numeric(dataframe[col], errors='coerce')
+    dataframe = dataframe.dropna(subset=columns_to_analyse)
 
     # Group the data by 'sample_id'
     # grouped = dataframe.groupby('sample_id') #deprecated in favour of grouping by both sample_id and tube_id
@@ -3933,6 +3882,132 @@ def summarise_imprecision(df: pd.DataFrame, metric: str, sample_id_substring: st
 
 ## Usage
 ## filtered_df = summarise_imprecision(data_rdml_indiv_imprecision, metric='rdml_mean_ng/L', sample_id_substring = 'NFL', min_inter_assay_freq = 3)
+
+
+def build_qc_df(df: pd.DataFrame, sample_id: list = None, stdev_range: int = 2) -> pd.DataFrame:
+    """
+    build_qc_df() → automatically constructs a QC dataframe from either
+    analyse_imprecision() or analyze_sample_stats() output.
+    It's intended for use with process_qc_data()
+
+    For analyse_imprecision(): uses inter-assay_mean and inter-assay_stdev columns.
+    For analyze_sample_stats(): uses mean and std columns.
+
+    Args:
+        df (pd.DataFrame): Input dataframe (output of analyse_imprecision() or analyze_sample_stats()).
+        sample_id (list, optional): Subset of sample_ids to include. Default = all.
+        stdev_range (int): Multiplier for the stdev range (e.g., 2 for mean ± 2*stdev).
+
+    Returns:
+        pd.DataFrame: QC dataframe with columns:
+                      ['sample_id', 'mean', 'stdev', f'stdev_range={stdev_range}', 'fail raw_ng/L', 'fail mean_ng/L']
+    """
+
+    # Identify function source by column pattern
+    imprecision_mean_cols = [c for c in df.columns if c.startswith('inter-assay_mean')]
+    imprecision_stdev_cols = [c for c in df.columns if c.startswith('inter-assay_stdev')]
+
+    if len(imprecision_mean_cols) > 1 or len(imprecision_stdev_cols) > 1:
+        raise ValueError("Multiple inter-assay metrics detected. Re-run analyse_imprecision() with a single columns_to_analyse entry.")
+    
+    if len(imprecision_mean_cols) == 1 and len(imprecision_stdev_cols) == 1:
+        mean_col = imprecision_mean_cols[0]
+        stdev_col = imprecision_stdev_cols[0]
+    elif {'mean', 'std'}.issubset(df.columns):
+        mean_col, stdev_col = 'mean', 'std'
+    else:
+        raise ValueError("Input DataFrame does not match expected structure from analyse_imprecision() or analyze_sample_stats().")
+
+    # Subset if sample_id list is provided
+    if sample_id:
+        df = df[df['sample_id'].isin(sample_id)]
+
+    qc_records = []
+    for _, row in df.iterrows():
+        mean_val = float(row[mean_col])
+        stdev_val = float(row[stdev_col])
+
+        lower = int(round(mean_val - stdev_range * stdev_val))
+        upper = int(round(mean_val + stdev_range * stdev_val))
+        qc_records.append({
+            'sample_id': row['sample_id'],
+            'mean': mean_val,
+            'stdev': stdev_val,
+            f'stdev_range={stdev_range}': f'[{lower}, {upper}]',
+            'fail raw_ng/L': None,
+            'fail mean_ng/L': None
+        })
+
+    qc_df = pd.DataFrame(qc_records)
+    return qc_df
+
+# Example usage
+# analyse_ss = analyze_sample_stats(data = mastertable, model_type = 'SLR; log10(x); exc_std0; ct; raw_ng/L', decimal_places = 'integer', format_timing= 'before')
+# qc_df = build_qc_df(df, sample_id = ['NFL-QC-H'], stdev_range = 2)
+
+
+def process_qc_data(qc_df, py_metatable):
+    """
+    Process QC data and identify failures based on standard deviation ranges.
+    Uses mean values from qc_df to evaluate failures for both raw and mean ng/L values.
+    
+    Parameters:
+    qc_df (pd.DataFrame): DataFrame containing QC information
+    py_metatable (pd.DataFrame): DataFrame containing measurement data with dilution column
+    
+    Returns:
+    pd.DataFrame: Updated QC DataFrame with fail values
+    """
+    # Create a copy of the input DataFrame to avoid modifying the original
+    qc_df = qc_df.copy()
+    
+    def parse_range(range_str):
+        """Extract min and max values from range string '[min, max]'"""
+        return [float(x) for x in range_str.strip('[]').split(',')]
+    
+    def calculate_deviations(value, mean, std):
+        """Calculate number of standard deviations from mean"""
+        return abs(value - mean) / std
+    
+    def check_failures(sample_data, mean_val, std_val, value_column):
+        """Check for failures in a specific value column"""
+        fails = []
+        for pos_idx, pos_row in sample_data.iterrows():
+            value = pos_row[value_column]
+            position = pos_row['position']
+            
+            # Check if value is outside the acceptable range defined by mean ± 2*std
+            if (value < (mean_val - 2*std_val)) or (value > (mean_val + 2*std_val)):
+                dev_calc = calculate_deviations(value, mean_val, std_val)
+                fail_str = f"[{position};{value:.0f};{dev_calc:.2f}]"
+                fails.append(fail_str)
+        return fails
+    
+    # Process each QC sample
+    for idx, row in qc_df.iterrows():
+        sample_id = row['sample_id']
+        mean_val = row['mean']
+        std_val = row['stdev']
+        
+        # Filter py_metatable for current sample_id and dilution
+        sample_data = py_metatable[
+            (py_metatable['sample_id'] == sample_id) & 
+            (py_metatable['dilution'] == 10)
+        ]
+        
+        # Check raw values
+        raw_fails = check_failures(sample_data, mean_val, std_val, 
+                                 'SLR; log10(x); exc_std0; ct; raw_ng/L')
+        if raw_fails:
+            qc_df.at[idx, 'fail raw_ng/L'] = '; '.join(raw_fails)
+            
+        # Check mean values
+        mean_fails = check_failures(sample_data, mean_val, std_val,
+                                  'SLR; log10(x); exc_std0; ct; mean_ng/L')
+        if mean_fails:
+            qc_df.at[idx, 'fail mean_ng/L'] = ', '.join(mean_fails)
+    
+    return qc_df
 
 
 def calc_PL_metrics(y_true: np.ndarray, y_pred: np.ndarray, 
@@ -5436,158 +5511,358 @@ def calc_py_metatable_all_models(metatable: pd.DataFrame, rdml_check: bool = Tru
         return py_metatable
 
 
+# def create_plate_visualization(df, plate_format=96, palette=None, font_size=8, 
+#                              value1=('rep_id', 'Rep: '), value2=('dilution', 'Dil: '),
+#                              heatmap=False, heatmap_palette="vlag", heatmap_value=('ct', 'Cycle: '),
+#                              cmap_exclusions=None):
+#     """
+#     Create a visualization of a microplate with sample information.
+#     Colors cells based on rep_id for non-standard/QC wells or as a heatmap based on a specified value.
+    
+#     Args:
+#         df: DataFrame with columns sample_id, position, rep_id, dilution
+#         plate_format: Integer specifying total wells (default: 96)
+#                      Supported formats: 6, 12, 24, 48, 96, 384, 1536
+#         palette: List of hex color codes or None (default: uses Set2 palette)
+#                 e.g., ['#1f77b4', '#ff7f0e', '#2ca02c', ...]
+#         font_size: Base font size for text (default: 8)
+#         value1: Tuple of (column_name, label) for first displayed value (default: ('rep_id', 'Rep: '))
+#         value2: Tuple of (column_name, label) for second displayed value (default: ('dilution', 'Dil: '))
+#         heatmap: Boolean to enable heatmap mode (default: False)
+#         heatmap_palette: String specifying seaborn color palette for heatmap (default: "vlag")
+#         heatmap_value: Tuple of (column_name, label) for heatmap value (default: ('ct', 'Cycle: '))
+#         cmap_exclusions: List of well positions to exclude from color mapping and heatmap scaling (default: None)
+#                         e.g., ['A1', 'H12']
+#     """
+#     import seaborn as sns
+#     import matplotlib.pyplot as plt
+#     import numpy as np
+    
+#     # Define plate dimensions for common formats
+#     plate_dimensions = {
+#         6: (2, 3),
+#         12: (3, 4),
+#         24: (4, 6),
+#         48: (6, 8),
+#         96: (8, 12),
+#         384: (16, 24),
+#         1536: (32, 48)
+#     }
+    
+#     if plate_format not in plate_dimensions:
+#         raise ValueError(f"Unsupported plate format: {plate_format}. Must be one of {list(plate_dimensions.keys())}")
+    
+#     # Validate that the requested columns exist in the dataframe
+#     required_columns = ['sample_id', 'position', value1[0], value2[0]]
+#     if heatmap:
+#         required_columns.append(heatmap_value[0])
+#     missing_columns = [col for col in required_columns if col not in df.columns]
+#     if missing_columns:
+#         raise ValueError(f"Missing required columns in dataframe: {missing_columns}")
+    
+#     # Initialize cmap_exclusions if None
+#     if cmap_exclusions is None:
+#         cmap_exclusions = []
+    
+#     num_rows, num_cols = plate_dimensions[plate_format]
+    
+#     # Create figure and axis
+#     # Adjust figure size based on plate format and heatmap mode
+#     fig_width = min(24, num_cols * 1.25)
+#     fig_height = min(16, num_rows * 1)
+#     if heatmap:
+#         fig_height += 2  # Add extra height for colorbar
+    
+#     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+    
+#     # Hide axes
+#     ax.set_xticks([])
+#     ax.set_yticks([])
+    
+#     # Create grid for wells
+#     rows = [chr(65 + i) for i in range(num_rows)]  # Generate row labels (A, B, C, ...)
+#     cols = list(range(1, num_cols + 1))
+    
+#     # Set up color mapping
+#     if heatmap:
+#         # Create color normalization based on heatmap values, excluding specified wells
+#         heatmap_values = df[~df['position'].isin(cmap_exclusions)][heatmap_value[0]]
+#         vmin = heatmap_values.min()
+#         vmax = heatmap_values.max()
+#         norm = plt.Normalize(vmin=vmin, vmax=vmax)
+#         cmap = sns.color_palette(heatmap_palette, as_cmap=True)
+#     else:
+#         # Use provided palette or default to Set2
+#         if palette is None:
+#             color_palette = ['#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3', 
+#                             '#a6d854', '#ffd92f', '#e5c494', '#b3b3b3']
+#         else:
+#             color_palette = palette
+        
+#         # Create a dynamic color mapping as we encounter rep_ids
+#         rep_colors = {}
+#         next_color_idx = 0
+    
+#     # Calculate cell size - adjust based on plate format
+#     cell_width = 1
+#     cell_height = 1
+    
+#     def calculate_text_color(facecolor):
+#         """Helper function to determine appropriate text color based on background color."""
+#         if isinstance(facecolor, (tuple, list, np.ndarray)):
+#             # For RGB tuples from heatmap
+#             rgb = [int(x * 255) for x in facecolor[:3]]
+#             brightness = (rgb[0] * 299 + rgb[1] * 587 + rgb[2] * 114) / 1000
+#             return 'black' if brightness > 128 else 'white'
+        
+#         if facecolor in ['white', 'black', 'grey', 'lightgrey', 'lightblue']:
+#             return 'black' if facecolor in ['white', 'lightgrey', 'lightblue'] else 'white'
+        
+#         hex_color = facecolor.lstrip('#')
+#         rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+#         brightness = (rgb[0] * 299 + rgb[1] * 587 + rgb[2] * 114) / 1000
+#         return 'black' if brightness > 128 else 'white'
+
+#     # Use the input font size directly, only scaling for very large plate formats
+#     fontsize = font_size
+#     if plate_format >= 384:
+#         fontsize *= 0.75
+
+#     # Draw grid and add well information
+#     for i, row in enumerate(rows):
+#         for j, col in enumerate(cols):
+#             position = f'{row}{col}'
+#             well_data = df[df['position'] == position]
+            
+#             if not well_data.empty:
+#                 sample_id = well_data['sample_id'].iloc[0]
+#                 val1 = well_data[value1[0]].iloc[0]
+#                 val2 = well_data[value2[0]].iloc[0]
+                
+#                 # Check if it's a standard well or QC well
+#                 is_standard = 'std' in str(sample_id).lower() and '[' in str(sample_id)
+#                 is_qch = 'QC-H' in str(sample_id) and '[' in str(sample_id)
+#                 is_qcm = 'QC-M' in str(sample_id) and '[' in str(sample_id)
+#                 is_qcl = 'QC-L' in str(sample_id) and '[' in str(sample_id)
+                
+#                 # Process the sample_id display consistently for all modes
+#                 if is_standard or is_qch or is_qcm or is_qcl:
+#                     displayed_sample_id = sample_id.split("_")[0]
+#                 else:
+#                     displayed_sample_id = sample_id
+                
+#                 if heatmap and position not in cmap_exclusions:
+#                     heatmap_val = well_data[heatmap_value[0]].iloc[0]
+#                     facecolor = cmap(norm(heatmap_val))
+#                     text = f'{displayed_sample_id}\n{value1[1]}{val1}\n{value2[1]}{val2}\n{heatmap_value[1]}{heatmap_val:.2f}'
+#                 else:
+#                     if heatmap:
+#                         heatmap_val = well_data[heatmap_value[0]].iloc[0]
+#                         text = f'{displayed_sample_id}\n{value1[1]}{val1}\n{value2[1]}{val2}\n{heatmap_value[1]}{heatmap_val:.2f}'
+#                     else:
+#                         text = f'{displayed_sample_id}\n{value1[1]}{val1}\n{value2[1]}{val2}'
+                    
+#                     # Set cell color
+#                     if position in cmap_exclusions:
+#                         facecolor = 'white'
+#                     elif is_qch:
+#                         facecolor = 'black'
+#                     elif is_qcm:
+#                         facecolor = 'grey'
+#                     elif is_qcl:
+#                         facecolor = 'lightgrey'
+#                     elif is_standard:
+#                         facecolor = 'lightblue'
+#                     else:
+#                         if val1 not in rep_colors:
+#                             rep_colors[val1] = color_palette[next_color_idx % len(color_palette)]
+#                             next_color_idx += 1
+#                         facecolor = rep_colors[val1]
+                
+#                 text_color = calculate_text_color(facecolor)
+                
+#             else:
+#                 text = 'N/A'
+#                 text_color = 'black'
+#                 facecolor = 'white'
+            
+#             rect = plt.Rectangle((j * cell_width, (num_rows-1-i) * cell_height), 
+#                                cell_width, cell_height, 
+#                                fill=True,
+#                                facecolor=facecolor,
+#                                ec='black')
+#             ax.add_patch(rect)
+#             ax.text(j * cell_width + cell_width/2, 
+#                    (num_rows-1-i) * cell_height + cell_height/2,
+#                    text,
+#                    ha='center',
+#                    va='center',
+#                    fontsize=fontsize,
+#                    color=text_color)
+    
+#     # Add row labels
+#     for i, row in enumerate(rows):
+#         ax.text(-0.2, (num_rows-1-i) * cell_height + cell_height/2, 
+#                 row, 
+#                 ha='center', 
+#                 va='center', 
+#                 fontweight='bold',
+#                 fontsize=fontsize)
+    
+#     # Add column labels
+#     for j, col in enumerate(cols):
+#         ax.text(j * cell_width + cell_width/2, num_rows + 0.2, 
+#                 str(col), 
+#                 ha='center', 
+#                 va='center', 
+#                 fontweight='bold',
+#                 fontsize=fontsize)
+    
+#     # Set figure limits
+#     ax.set_xlim(-0.5, num_cols)
+#     ax.set_ylim(-0.5, num_rows + 0.5)
+
+#     # Add colorbar if heatmap is enabled
+#     if heatmap:
+#         # Adjust plot position to maintain size
+#         ax.set_position([0.1, 0.2, 0.8, 0.7])  # [left, bottom, width, height]
+        
+#         # Create a new axis for colorbar below the main plot
+#         cbar_ax = fig.add_axes([0.15, 0.1, 0.7, 0.03])  # [left, bottom, width, height]
+#         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+#         cbar = plt.colorbar(sm, cax=cbar_ax, orientation='horizontal', label=heatmap_value[0])
+#         cbar.ax.tick_labels = fontsize
+#     else:
+#         plt.tight_layout()
+        
+#     return fig
+
 def create_plate_visualization(df, plate_format=96, palette=None, font_size=8, 
                              value1=('rep_id', 'Rep: '), value2=('dilution', 'Dil: '),
                              heatmap=False, heatmap_palette="vlag", heatmap_value=('ct', 'Cycle: '),
-                             cmap_exclusions=None):
+                             cmap_exclusions=None, values_decimal_places=2, heatmap_decimal_places=2):
     """
     Create a visualization of a microplate with sample information.
     Colors cells based on rep_id for non-standard/QC wells or as a heatmap based on a specified value.
-    
+
     Args:
         df: DataFrame with columns sample_id, position, rep_id, dilution
         plate_format: Integer specifying total wells (default: 96)
-                     Supported formats: 6, 12, 24, 48, 96, 384, 1536
         palette: List of hex color codes or None (default: uses Set2 palette)
-                e.g., ['#1f77b4', '#ff7f0e', '#2ca02c', ...]
         font_size: Base font size for text (default: 8)
-        value1: Tuple of (column_name, label) for first displayed value (default: ('rep_id', 'Rep: '))
-        value2: Tuple of (column_name, label) for second displayed value (default: ('dilution', 'Dil: '))
-        heatmap: Boolean to enable heatmap mode (default: False)
-        heatmap_palette: String specifying seaborn color palette for heatmap (default: "vlag")
-        heatmap_value: Tuple of (column_name, label) for heatmap value (default: ('ct', 'Cycle: '))
-        cmap_exclusions: List of well positions to exclude from color mapping and heatmap scaling (default: None)
-                        e.g., ['A1', 'H12']
+        value1: Tuple of (column_name, label) for first displayed value
+        value2: Tuple of (column_name, label) for second displayed value
+        heatmap: Boolean to enable heatmap mode
+        heatmap_palette: Seaborn palette for heatmap
+        heatmap_value: Tuple of (column_name, label) for heatmap value
+        cmap_exclusions: List of well positions to exclude from color mapping
+        values_decimal_places: Decimal places for value1 and value2 (if numeric)
+        heatmap_decimal_places: Decimal places for heatmap value
     """
     import seaborn as sns
     import matplotlib.pyplot as plt
     import numpy as np
-    
-    # Define plate dimensions for common formats
+
     plate_dimensions = {
-        6: (2, 3),
-        12: (3, 4),
-        24: (4, 6),
-        48: (6, 8),
-        96: (8, 12),
-        384: (16, 24),
-        1536: (32, 48)
+        6: (2, 3), 12: (3, 4), 24: (4, 6), 48: (6, 8),
+        96: (8, 12), 384: (16, 24), 1536: (32, 48)
     }
-    
+
     if plate_format not in plate_dimensions:
         raise ValueError(f"Unsupported plate format: {plate_format}. Must be one of {list(plate_dimensions.keys())}")
-    
-    # Validate that the requested columns exist in the dataframe
+
     required_columns = ['sample_id', 'position', value1[0], value2[0]]
     if heatmap:
         required_columns.append(heatmap_value[0])
     missing_columns = [col for col in required_columns if col not in df.columns]
     if missing_columns:
         raise ValueError(f"Missing required columns in dataframe: {missing_columns}")
-    
-    # Initialize cmap_exclusions if None
+
     if cmap_exclusions is None:
         cmap_exclusions = []
-    
+
     num_rows, num_cols = plate_dimensions[plate_format]
-    
-    # Create figure and axis
-    # Adjust figure size based on plate format and heatmap mode
     fig_width = min(24, num_cols * 1.25)
     fig_height = min(16, num_rows * 1)
     if heatmap:
-        fig_height += 2  # Add extra height for colorbar
-    
+        fig_height += 2
+
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
-    
-    # Hide axes
     ax.set_xticks([])
     ax.set_yticks([])
-    
-    # Create grid for wells
-    rows = [chr(65 + i) for i in range(num_rows)]  # Generate row labels (A, B, C, ...)
+
+    rows = [chr(65 + i) for i in range(num_rows)]
     cols = list(range(1, num_cols + 1))
-    
-    # Set up color mapping
+
     if heatmap:
-        # Create color normalization based on heatmap values, excluding specified wells
         heatmap_values = df[~df['position'].isin(cmap_exclusions)][heatmap_value[0]]
         vmin = heatmap_values.min()
         vmax = heatmap_values.max()
         norm = plt.Normalize(vmin=vmin, vmax=vmax)
         cmap = sns.color_palette(heatmap_palette, as_cmap=True)
     else:
-        # Use provided palette or default to Set2
         if palette is None:
-            color_palette = ['#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3', 
-                            '#a6d854', '#ffd92f', '#e5c494', '#b3b3b3']
+            color_palette = ['#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3',
+                             '#a6d854', '#ffd92f', '#e5c494', '#b3b3b3']
         else:
             color_palette = palette
-        
-        # Create a dynamic color mapping as we encounter rep_ids
         rep_colors = {}
         next_color_idx = 0
-    
-    # Calculate cell size - adjust based on plate format
+
     cell_width = 1
     cell_height = 1
-    
+
     def calculate_text_color(facecolor):
-        """Helper function to determine appropriate text color based on background color."""
         if isinstance(facecolor, (tuple, list, np.ndarray)):
-            # For RGB tuples from heatmap
             rgb = [int(x * 255) for x in facecolor[:3]]
             brightness = (rgb[0] * 299 + rgb[1] * 587 + rgb[2] * 114) / 1000
             return 'black' if brightness > 128 else 'white'
-        
         if facecolor in ['white', 'black', 'grey', 'lightgrey', 'lightblue']:
             return 'black' if facecolor in ['white', 'lightgrey', 'lightblue'] else 'white'
-        
         hex_color = facecolor.lstrip('#')
         rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
         brightness = (rgb[0] * 299 + rgb[1] * 587 + rgb[2] * 114) / 1000
         return 'black' if brightness > 128 else 'white'
 
-    # Use the input font size directly, only scaling for very large plate formats
     fontsize = font_size
     if plate_format >= 384:
         fontsize *= 0.75
 
-    # Draw grid and add well information
     for i, row in enumerate(rows):
         for j, col in enumerate(cols):
             position = f'{row}{col}'
             well_data = df[df['position'] == position]
-            
+
             if not well_data.empty:
                 sample_id = well_data['sample_id'].iloc[0]
-                val1 = well_data[value1[0]].iloc[0]
-                val2 = well_data[value2[0]].iloc[0]
-                
-                # Check if it's a standard well or QC well
+                val1_raw = well_data[value1[0]].iloc[0]
+                val2_raw = well_data[value2[0]].iloc[0]
+
+                # Format val1 and val2 if numeric
+                if isinstance(val1_raw, (int, float, np.integer, np.floating)):
+                    val1 = f"{val1_raw:.{values_decimal_places}f}"
+                else:
+                    val1 = str(val1_raw)
+
+                if isinstance(val2_raw, (int, float, np.integer, np.floating)):
+                    val2 = f"{val2_raw:.{values_decimal_places}f}"
+                else:
+                    val2 = str(val2_raw)
+
                 is_standard = 'std' in str(sample_id).lower() and '[' in str(sample_id)
                 is_qch = 'QC-H' in str(sample_id) and '[' in str(sample_id)
                 is_qcm = 'QC-M' in str(sample_id) and '[' in str(sample_id)
                 is_qcl = 'QC-L' in str(sample_id) and '[' in str(sample_id)
-                
-                # Process the sample_id display consistently for all modes
-                if is_standard or is_qch or is_qcm or is_qcl:
-                    displayed_sample_id = sample_id.split("_")[0]
-                else:
-                    displayed_sample_id = sample_id
-                
-                if heatmap and position not in cmap_exclusions:
+
+                displayed_sample_id = sample_id.split("_")[0] if (is_standard or is_qch or is_qcm or is_qcl) else sample_id
+
+                if heatmap:
                     heatmap_val = well_data[heatmap_value[0]].iloc[0]
-                    facecolor = cmap(norm(heatmap_val))
-                    text = f'{displayed_sample_id}\n{value1[1]}{val1}\n{value2[1]}{val2}\n{heatmap_value[1]}{heatmap_val:.2f}'
+                    formatted_val = f"{heatmap_val:.{heatmap_decimal_places}f}"
+                    text = f'{displayed_sample_id}\n{value1[1]}{val1}\n{value2[1]}{val2}\n{heatmap_value[1]}{formatted_val}'
+                    facecolor = cmap(norm(heatmap_val)) if position not in cmap_exclusions else 'white'
                 else:
-                    if heatmap:
-                        heatmap_val = well_data[heatmap_value[0]].iloc[0]
-                        text = f'{displayed_sample_id}\n{value1[1]}{val1}\n{value2[1]}{val2}\n{heatmap_value[1]}{heatmap_val:.2f}'
-                    else:
-                        text = f'{displayed_sample_id}\n{value1[1]}{val1}\n{value2[1]}{val2}'
-                    
-                    # Set cell color
+                    text = f'{displayed_sample_id}\n{value1[1]}{val1}\n{value2[1]}{val2}'
                     if position in cmap_exclusions:
                         facecolor = 'white'
                     elif is_qch:
@@ -5603,64 +5878,45 @@ def create_plate_visualization(df, plate_format=96, palette=None, font_size=8,
                             rep_colors[val1] = color_palette[next_color_idx % len(color_palette)]
                             next_color_idx += 1
                         facecolor = rep_colors[val1]
-                
+
                 text_color = calculate_text_color(facecolor)
-                
             else:
                 text = 'N/A'
                 text_color = 'black'
                 facecolor = 'white'
-            
-            rect = plt.Rectangle((j * cell_width, (num_rows-1-i) * cell_height), 
-                               cell_width, cell_height, 
-                               fill=True,
-                               facecolor=facecolor,
-                               ec='black')
+
+            rect = plt.Rectangle((j * cell_width, (num_rows - 1 - i) * cell_height), 
+                                 cell_width, cell_height, 
+                                 fill=True, facecolor=facecolor, ec='black')
             ax.add_patch(rect)
-            ax.text(j * cell_width + cell_width/2, 
-                   (num_rows-1-i) * cell_height + cell_height/2,
-                   text,
-                   ha='center',
-                   va='center',
-                   fontsize=fontsize,
-                   color=text_color)
-    
-    # Add row labels
+            ax.text(j * cell_width + cell_width / 2, 
+                    (num_rows - 1 - i) * cell_height + cell_height / 2,
+                    text, ha='center', va='center',
+                    fontsize=fontsize, color=text_color)
+
     for i, row in enumerate(rows):
-        ax.text(-0.2, (num_rows-1-i) * cell_height + cell_height/2, 
-                row, 
-                ha='center', 
-                va='center', 
-                fontweight='bold',
-                fontsize=fontsize)
-    
-    # Add column labels
+        ax.text(-0.2, (num_rows - 1 - i) * cell_height + cell_height / 2, 
+                row, ha='center', va='center', fontweight='bold', fontsize=fontsize)
     for j, col in enumerate(cols):
-        ax.text(j * cell_width + cell_width/2, num_rows + 0.2, 
-                str(col), 
-                ha='center', 
-                va='center', 
-                fontweight='bold',
-                fontsize=fontsize)
-    
-    # Set figure limits
+        ax.text(j * cell_width + cell_width / 2, num_rows + 0.2, 
+                str(col), ha='center', va='center', fontweight='bold', fontsize=fontsize)
+
     ax.set_xlim(-0.5, num_cols)
     ax.set_ylim(-0.5, num_rows + 0.5)
 
-    # Add colorbar if heatmap is enabled
     if heatmap:
-        # Adjust plot position to maintain size
-        ax.set_position([0.1, 0.2, 0.8, 0.7])  # [left, bottom, width, height]
-        
-        # Create a new axis for colorbar below the main plot
-        cbar_ax = fig.add_axes([0.15, 0.1, 0.7, 0.03])  # [left, bottom, width, height]
+        ax.set_position([0.1, 0.2, 0.8, 0.7])
+        cbar_ax = fig.add_axes([0.15, 0.1, 0.7, 0.03])
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         cbar = plt.colorbar(sm, cax=cbar_ax, orientation='horizontal', label=heatmap_value[0])
-        cbar.ax.tick_labels = fontsize
+        cbar.ax.tick_params(labelsize=fontsize)
     else:
         plt.tight_layout()
-        
+
     return fig
+
+
+
 # # Example usage:
 # fig1 = create_plate_visualization(py_metatable, plate_format = 96, palette = ['#FFFFFF'], font_size=12)
 # fig2 = create_plate_visualization(py_metatable, plate_format = 96, font_size=12)
@@ -5735,7 +5991,8 @@ def analyze_sample_stats(data: pd.DataFrame,
                         decimal_places: Union[int, str] = 0, 
                         format_timing: str = 'before') -> pd.DataFrame:
     """
-    Calculate statistics for each sample_id with flexible decimal place formatting.
+    analyze_sample_stats() → performs the pooled CV calculation. It analyses single reactions from all measurements in all assays for each sample_id and provides a simple statistical 
+    summary (mean, stdev, CV). This function differs from analyse_imprecision() in that no distinctions are made between intra or inter assay performance and outlier filters are not offered. 
     
     Parameters:
     -----------
@@ -5752,18 +6009,19 @@ def analyze_sample_stats(data: pd.DataFrame,
     --------
     DataFrame: Statistics for each sample_id
     """
-    
+
     if format_timing == 'before':
         print("""Attention User! Setting format_timing = before. Therefore Mean and Standard Deviation values will be rounded prior to calculating imprecision ranges. """
               """Check tables carefully for evidence of rounding errors. For example: """)
-        print("Setting format_timing = before. Lower bound evaluated as round(mean) - round(2*standard deviation)""")
-        print("Setting format_timing = after. Lower bound evaluated as round(mean - (2*standard deviation))""")
-    
+        print("Setting format_timing = before. Lower bound evaluated as round(mean) - round(2*standard deviation)")
+        print("Setting format_timing = after. Lower bound evaluated as round(mean - (2*standard deviation))")
     elif format_timing == 'after':
         print("User format_timing = after. Imprecision ranges will first be calculated from native Mean and Standard Deviation values. Rounding will be applied to the ranges afterwards.")
 
     def format_number(value: float) -> Union[int, float]:
         """Format a number according to specified decimal places or as integer"""
+        if pd.isna(value):
+            return np.nan
         if decimal_places == 'integer':
             return int(round(value))
         else:
@@ -5771,21 +6029,34 @@ def analyze_sample_stats(data: pd.DataFrame,
     
     def calculate_stats(group: pd.Series) -> pd.Series:
         """Calculate statistical measures for a group of samples"""
+        # Drop NaN and ensure numeric
+        group = pd.to_numeric(group, errors='coerce').dropna()
         n: int = len(group)
+        if n == 0:
+            return pd.Series({
+                'mean': np.nan, 'std': np.nan, 'cv_percent': np.nan,
+                'ci_lower': np.nan, 'ci_upper': np.nan, 'n_samples': 0,
+                'std1_range': [np.nan, np.nan],
+                'std2_range': [np.nan, np.nan],
+                'std3_range': [np.nan, np.nan]
+            })
+
         mean: float = group.mean()
         std: float = group.std()
-        cv: float = (std / abs(mean)) * 100
+        cv: float = (std / abs(mean)) * 100 if mean != 0 else np.nan
         
         # Calculate 95% confidence interval
-        ci: Tuple[float, float] = stats.t.interval(
-            confidence=0.95,
-            df=n-1,
-            loc=mean,
-            scale=stats.sem(group)
-        )
+        if n > 1:
+            ci: Tuple[float, float] = stats.t.interval(
+                confidence=0.95,
+                df=n-1,
+                loc=mean,
+                scale=stats.sem(group)
+            )
+        else:
+            ci = (mean, mean)
 
         if format_timing == 'before':
-            # Format values before calculations
             mean = format_number(mean)
             std1 = format_number(std)
             std2 = format_number(2*std)
@@ -5799,7 +6070,6 @@ def analyze_sample_stats(data: pd.DataFrame,
             std3_upper = format_number(mean) + format_number(std3)
         
         else:  # 'after'
-            # Calculate at full precision
             std1 = std
             std2 = 2 * std
             std3 = 3 * std
@@ -5816,10 +6086,10 @@ def analyze_sample_stats(data: pd.DataFrame,
             
         return pd.Series({
             'mean': format_number(mean),
-            'std': round(std,2),
-            'cv_percent': round(cv, 1),
-            'ci_lower': round(ci[0], 1),
-            'ci_upper': round(ci[1], 1),
+            'std': round(std, 2),
+            'cv_percent': round(cv, 1) if not pd.isna(cv) else np.nan,
+            'ci_lower': round(ci[0], 1) if not pd.isna(ci[0]) else np.nan,
+            'ci_upper': round(ci[1], 1) if not pd.isna(ci[1]) else np.nan,
             'n_samples': n,
             'std1_range': [std1_lower, std1_upper],
             'std2_range': [std2_lower, std2_upper],
@@ -5827,7 +6097,6 @@ def analyze_sample_stats(data: pd.DataFrame,
         })
     
     def custom_sort_key(sample_id: str) -> Tuple[int, float, str]:
-        """Generate sorting key for sample IDs"""
         has_std: bool = 'std' in sample_id.lower()
         match: Union[re.Match, None] = re.search(r'\[([\d.]+)\]', sample_id)
         if has_std:
@@ -5839,27 +6108,24 @@ def analyze_sample_stats(data: pd.DataFrame,
                 return (0, float(match.group(1)), sample_id)
             return (0, float('inf'), sample_id)
     
-    # Input validation
     if format_timing not in ['before', 'after']:
         raise ValueError("format_timing must be either 'before' or 'after'")
     
-    # Group by sample_id and calculate statistics
     results: List[pd.Series] = []
     for sample_id, group in data.groupby('sample_id'):
         stats_series = calculate_stats(group[model_type])
         stats_series['sample_id'] = sample_id
         results.append(stats_series)
     
-    # Create final DataFrame
     stats_df = pd.DataFrame(results)
     stats_df = stats_df[['sample_id', 'mean', 'std', 'cv_percent', 
                         'ci_lower', 'ci_upper', 'n_samples',
                         'std1_range', 'std2_range', 'std3_range']]
     
-    # Sort using the custom function
     stats_df = stats_df.sort_values('sample_id', key=lambda x: x.map(custom_sort_key)).reset_index(drop=True)
     
     return stats_df
+
 
 # # Example Usage
 # stats_results = analyze_sample_stats(data_f, model_type = 'usr_raw_ng/L', decimal_places = 'integer', format_timing = 'before')
@@ -6002,3 +6268,472 @@ def calculate_intraAssay_signal(mastertable,
 # plt.figure(e91_rox)
 # plt.title('e91 ROX mean; Quant B; cycles 0-10', loc='center', y=27)  # y > 1.0 moves it up
 # plt.show()
+
+def diomni_export_dict(path: Path) -> dict[Path, list[Path]]:
+    """
+    Detects Diomni-format txt exports under a base path.
+    Groups them by folder where all files share the same timestamp and valid userfilename.
+
+    Parameters
+    ----------
+    path : Path
+        Directory to recursively search.
+
+    Returns
+    -------
+    dict
+        Keys are folders (Path) containing Diomni exports.
+        Values are lists of .txt Paths from that folder.
+    """
+    pattern = re.compile(r"(?P<userfilename>.+)_(?P<datatype>Raw Data|Amplification Data|.+)_(?P<timestamp>\d{8}_\d{6})\.txt$")
+    group_dict = {}
+
+    for file in path.rglob("*.txt"):
+        match = pattern.match(file.name)
+        if not match:
+            continue
+        folder = file.parent
+        group_key = (folder, match.group("timestamp"))
+        if group_key not in group_dict:
+            group_dict[group_key] = []
+        group_dict[group_key].append(file)
+
+    valid_exports = {}
+
+    for (folder, timestamp), files in group_dict.items():
+        datatypes = [pattern.match(f.name).group("datatype") for f in files]
+        if "Raw Data" not in datatypes or "Amplification Data" not in datatypes:
+            continue
+        valid_exports[folder] = files
+
+    return valid_exports
+
+
+def extract_instr_params_diomni(files: list[Path]) -> pd.Series:
+    '''
+    Extracts instrument parameters from a list of Diomni TXT files.
+
+    Parameters
+    ----------
+    files : list[Path]
+        List of Diomni .txt export files.
+
+    Returns
+    -------
+    pd.Series
+        A pandas Series containing instrument parameters dynamically parsed.
+    '''
+    data_dict = {}
+
+    # Datetime patterns observed in Diomni exports
+    pattern_datetime = r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) (AM|PM) [A-Z]{2,5}$'
+    pattern_date_only = r'^\d{4}-\d{2}-\d{2}$'
+
+    for f in files:
+        with f.open('r', encoding='utf-8') as fh:
+            content = fh.read()
+            if '# File Name:' in content:
+                for line in content.splitlines():
+                    if not line.startswith('#'):
+                        continue
+                    line_clean = line.lstrip('#').strip()
+                    if ':' not in line_clean:
+                        continue
+                    key, value = line_clean.split(':', 1)
+                    key = key.strip().replace(' ', '_').lower()
+                    value = value.strip()
+                    if re.match(pattern_datetime, value):
+                        value = datetime.strptime(re.match(pattern_datetime, value).group(1), '%Y-%m-%d %H:%M:%S')
+                    elif re.match(pattern_date_only, value):
+                        value = datetime.strptime(value, '%Y-%m-%d')
+                    data_dict[key] = value
+                break
+
+    return pd.Series(data_dict)
+
+
+def extract_instr_tables_diomni(any_file: Path) -> dict[str, pd.DataFrame]:
+    '''
+    Extracts all data tables from Diomni-format TXT files in a folder.
+    Normalizes ragged rows to header width. Validates consistency of embedded filenames and timestamp groupings.
+    '''
+    directory = any_file.parent
+    txt_files = list(directory.glob("*.txt"))
+
+    pattern = re.compile(
+        r"(?P<userfilename>.+)_(?P<datatype>.+)_(?P<timestamp>\d{8}_\d{6})\.txt$"
+    )
+
+    groups = {}
+    for f in txt_files:
+        m = pattern.match(f.name)
+        if not m:
+            continue
+        ts = m.group("timestamp")
+        groups.setdefault(ts, []).append((f, m.group("userfilename"), m.group("datatype")))
+
+    if len(groups) != 1:
+        print(f"\nFolder: {directory}")
+        print("Error: Multiple Diomni export groups detected with different timestamps.")
+        print("Please include only one set of Diomni .txt exports per folder.")
+        return {}
+
+    table_dict = {}
+    group_files = next(iter(groups.values()))
+
+    for file_path, userfilename, datatype in group_files:
+        with file_path.open("r", encoding="utf-8") as f:
+            lines = f.readlines()
+
+        header_line = next((l for l in lines if l.startswith("# File Name:")), None)
+        if not header_line:
+            print(f"Missing '# File Name:' in {file_path.name}")
+            return {}
+
+        embedded = Path(header_line.split(":", 1)[1].strip()).stem
+        if embedded != userfilename:
+            print(f"Filename mismatch in {file_path.name}")
+            return {}
+
+        data_lines = [l for l in lines if not l.strip().startswith("#")]
+        parsed = [
+            [c.strip('"') for c in l.rstrip().split("\t")]
+            for l in data_lines if l.strip()
+        ]
+
+        if len(parsed) < 2:
+            continue
+
+        header = [h.lower() for h in parsed[0]]
+        rows = parsed[1:]
+
+        width = len(header)
+        for i, row in enumerate(rows):
+            if len(row) < width:
+                rows[i] = row + [None] * (width - len(row))
+            elif len(row) > width:
+                rows[i] = row[:width]
+
+        df = pd.DataFrame(rows, columns=header)
+        df = df.apply(pd.to_numeric, errors="ignore")
+
+        table_dict[datatype] = df
+
+    return table_dict
+
+
+# def merge_diomni_exports_to_txt(files: list[Path]) -> Path | None:
+#     '''
+#     Merges Diomni .txt export files into a synthetic QuantStudio-style .txt file
+#     saved alongside the corresponding .eds file.
+
+#     Parameters
+#     ----------
+#     files : list[Path]
+#         List of Diomni TXT export files that share timestamp and userfilename.
+
+#     Returns
+#     -------
+#     Path | None
+#         Path to new .txt file saved alongside .eds, or None if aborted.
+#     '''
+#     if not files:
+#         return None
+
+#     # Infer userfilename from filename pattern
+#     m = re.match(r"(?P<userfilename>.+)_.+_(\d{8}_\d{6})\.txt$", files[0].name)
+#     if not m:
+#         return None
+#     userfilename = m.group("userfilename")
+
+#     # Locate corresponding .eds using embedded header
+#     eds_path = None
+#     for f in files:
+#         with f.open("r", encoding="utf-8") as fh:
+#             for line in fh:
+#                 if line.startswith("# File Name:"):
+#                     eds_path = Path(line.split(":", 1)[1].strip())
+#                     break
+#         if eds_path:
+#             break
+
+#     if not eds_path or not eds_path.name.endswith(".eds"):
+#         print(f"Cannot locate .eds path for Diomni export group: {userfilename}")
+#         return None
+
+#     # Extract parameters and tables
+#     instr_params = extract_instr_params_diomni(files)
+#     table_dict = extract_instr_tables_diomni(files[0])
+
+#     # Correct emptiness checks
+#     if instr_params.empty or not table_dict:
+#         return None
+
+#     out_path = eds_path.with_suffix(".txt")
+
+#     with out_path.open("w", encoding="utf-8") as out_file:
+#         # Write instrument parameters
+#         for key, val in instr_params.items():
+#             val_str = (
+#                 val.strftime("%m-%d-%Y %H:%M:%S")
+#                 if isinstance(val, datetime)
+#                 else str(val)
+#             )
+#             formatted_key = key.replace("_", " ").title()
+#             out_file.write(f"* {formatted_key} = {val_str}\n")
+
+#         out_file.write("\n")
+
+#         # Write tables
+#         for table_name, df in table_dict.items():
+#             out_file.write(f"[{table_name}]\n")
+#             df.to_csv(out_file, sep="\t", index=False)
+#             out_file.write("\n")
+
+#     return out_path
+
+def merge_diomni_exports_to_txt(files: list[Path], out_path: Path) -> Path | None:
+    '''
+    Merges Diomni .txt export files into a synthetic QuantStudio-style .txt file.
+
+    Output location is provided by caller (derived from current filesystem), not from
+    embedded '# File Name:' paths inside exports.
+    '''
+    if not files:
+        return None
+
+    m = re.match(r"(?P<userfilename>.+)_.+_(\d{8}_\d{6})\.txt$", files[0].name)
+    if not m:
+        return None
+    userfilename = m.group("userfilename")
+
+    # Non-fatal sanity check only (do not abort on exporter-machine path weirdness)
+    for f in files:
+        try:
+            with f.open("r", encoding="utf-8") as fh:
+                for line in fh:
+                    if line.startswith("# File Name:"):
+                        embedded_stem = Path(line.split(":", 1)[1].strip()).stem
+                        if embedded_stem and embedded_stem != userfilename:
+                            print(f"Warning: embedded filename stem mismatch in {f.name}: embedded={embedded_stem}, expected={userfilename}")
+                        break
+        except Exception:
+            pass
+
+    instr_params = extract_instr_params_diomni(files)
+    table_dict = extract_instr_tables_diomni(files[0])
+
+    if instr_params.empty or not table_dict:
+        return None
+
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with out_path.open("w", encoding="utf-8") as out_file:
+        for key, val in instr_params.items():
+            val_str = val.strftime("%m-%d-%Y %H:%M:%S") if isinstance(val, datetime) else str(val)
+            formatted_key = key.replace("_", " ").title()
+            out_file.write(f"* {formatted_key} = {val_str}\n")
+
+        out_file.write("\n")
+
+        for table_name, df in table_dict.items():
+            out_file.write(f"[{table_name}]\n")
+            df.to_csv(out_file, sep="\t", index=False)
+            out_file.write("\n")
+
+    return out_path
+
+
+
+def build_instr_df(instr_tables_dict: dict, mode: str = 'quantstudio') -> pd.DataFrame:
+    '''
+    Flattens instrument table data from extract_instr_tables() or extract_instr_tables_diomni()
+    into a single DataFrame. Rows are per well. Columns are collapsed lists or scalar values.
+
+    Parameters
+    ----------
+    instr_tables_dict : dict
+        Dictionary of DataFrames, keyed by table name.
+
+    mode : str
+        Either 'quantstudio' or 'diomni'. In 'quantstudio' mode, required tables must be present.
+        In 'diomni' mode, all available tables are processed dynamically, skipping those without 'well'.
+
+    Returns
+    -------
+    pd.DataFrame
+        Flattened instrument data with one row per well.
+    '''
+    if mode == 'quantstudio':
+        required_keys = ['Raw Data', 'Amplification Data', 'Multicomponent Data']
+        optional_keys = ['Melt Curve Raw Data']
+        missing_required = [k for k in required_keys if k not in instr_tables_dict]
+        if missing_required:
+            raise KeyError(f"Missing required keys {', '.join(missing_required)}")
+        present_keys = required_keys + [k for k in optional_keys if k in instr_tables_dict]
+    elif mode == 'diomni':
+        present_keys = list(instr_tables_dict.keys())
+    else:
+        raise ValueError("mode must be 'quantstudio' or 'diomni'")
+
+    instr_df = pd.DataFrame()
+
+    for key in present_keys:
+        table = instr_tables_dict[key]
+        if 'well' not in table.columns:
+            continue
+        for col in table.columns:
+            instr_df[f'{col} (eds; {key.lower()})'] = (
+                table.groupby('well')[col]
+                     .apply(lambda x: x.iloc[0] if x.nunique() == 1 else x.tolist())
+            )
+
+    instr_df.reset_index(inplace=True)
+    return instr_df
+
+
+
+# Usage
+# Build the instr_df with selected tables
+# MRFF2_df = build_instr_df(MRFF2_dict)
+# Add in an identifier column if planning to merge on mastertable
+# MRFF2_df['filepath_txt'] = '230324_MRFF_e2_kruti/230410/Plate 2_NfL_MRFF_Dhama Plasma 21s to 40s.txt'
+
+def build_master_instr_df(df_pivot: pd.DataFrame, data_folder: Path) -> pd.DataFrame:
+    '''
+    Extracts instrument data from .txt files identified in df_pivot and combines into one table.
+
+    Detects Diomni vs QuantStudio format and calls appropriate flattening logic.
+
+    Parameters
+    ----------
+    df_pivot : pd.DataFrame
+        Output from review_matched_filenames()
+
+    data_folder : Path
+        Base path to /data directory
+
+    Returns
+    -------
+    pd.DataFrame
+        Concatenated instrument data from all experiments.
+    '''
+    all_instr_dfs = pd.DataFrame()
+
+    for idx, row in df_pivot.iterrows():
+        if row['txt'] and row['csv']:
+            path_key_txt = data_folder / (row['path_key'] + '.txt')
+
+            try:
+                with path_key_txt.open('r', encoding='utf-8') as f:
+                    lines = f.readlines()
+            except Exception as e:
+                print(f"Cannot open file: {path_key_txt}. Error: {e}")
+                continue
+
+            # Detect table headers
+            headers = [line.strip()[1:-1] for line in lines if line.strip().startswith('[')]
+            diomni_specific = {'Standard Curve Result', 'Replicate Group Result'}
+            format_type = 'diomni' if diomni_specific.intersection(headers) else 'quantstudio'
+
+            if format_type == 'quantstudio':
+                instr_dict = extract_instr_tables(path_key_txt)
+                if len(instr_dict) != 8:
+                    print('Warning: Not all QuantStudio instrument tables were exported:')
+                    print(path_key_txt)
+
+                required_keys = ['Raw Data', 'Amplification Data', 'Multicomponent Data']
+                optional_keys = ['Melt Curve Raw Data']
+                missing_required = [k for k in required_keys if k not in instr_dict]
+                if missing_required:
+                    raise KeyError(f"Missing required keys {', '.join(missing_required)} in file {path_key_txt}")
+
+                missing_optional = [k for k in optional_keys if k not in instr_dict]
+                if missing_optional:
+                    print(f"Warning: missing optional keys {', '.join(missing_optional)} in file {path_key_txt}")
+
+            else:
+                instr_dict = extract_instr_tables(path_key_txt)
+
+            try:
+                instr_df = build_instr_df(instr_dict, mode=format_type)
+                instr_df['filepath_txt'] = str(row['path_key'] + '.txt')
+                all_instr_dfs = pd.concat([all_instr_dfs, instr_df], axis=0)
+            except Exception as e:
+                print(f"Failed to process {path_key_txt} ({format_type}): {e}")
+
+    return all_instr_dfs
+
+# Usage
+# master_instr_df = build_master_instr_df(df_pivot, data_folder)
+# To merge on mastertable
+# mastertable_updated = pd.merge(mastertable, master_instr_df, how='inner', on=['well', 'filepath_txt'])
+
+def find_matched_filenames(path: Path, native_format: str = '.eds', export_format: str = '.txt', read_export: bool = True) -> Tuple[list, dict]:
+    '''
+    Identifies different file types with the same stem from a directory path and all its subdirectories.
+
+    Parameters
+    ----------
+    path : Path
+        A pathlib object that represents the directory path to search.
+    native_format : str, optional
+        A string that specifies the native file format to search for. Default is '.eds'.
+    export_format : str, optional
+        A string that specifies the export file format to search for. Default is '.txt'.
+    read_export : bool, optional
+        A boolean flag that specifies whether to read the contents of the export files. If True (default),
+        the function returns a dictionary with file paths and contents. If False, the function returns
+        a dummy dictionary with an 'empty' key and a message.
+
+    Returns
+    -------
+    tuple
+        A tuple containing two items:
+        - export_file_list: a list of name-matched export files as pathlib objects
+        - export_dict: a dictionary with export file paths and contents (if read_export is True)
+                       or a dummy dictionary with a message (if read_export is False)
+    '''
+    native_file_list = list(path.glob('**/*' + native_format))
+    export_file_list = [p.with_suffix(export_format) for p in native_file_list]
+
+    export_dict = {}
+
+    for i, export_file in enumerate(export_file_list):
+        if export_format == '.txt' and not export_file.exists():
+            subfolder = export_file.parent
+            diomni_groups = diomni_export_dict(subfolder)
+
+            for group_path, diomni_files in diomni_groups.items():
+                eds_stem = export_file.stem
+                if eds_stem in str(diomni_files[0]):
+                    result_path = merge_diomni_exports_to_txt(diomni_files, export_file)
+                    if result_path and result_path.exists():
+                        export_file_list[i] = result_path
+                    break
+
+    if read_export:
+        for file_path in export_file_list:
+            try:
+                if not file_path.is_file():
+                    print(f"File not found: {file_path}")
+                    continue
+                if export_format == '.txt':
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    export_dict[get_file_and_parents(file_path)] = content
+                elif export_format == '.csv':
+                    export_dict[get_file_and_parents(file_path)] = pd.read_csv(file_path, header=None)
+            except PermissionError:
+                print(f"Insufficient permissions to read file: {file_path}")
+            except Exception as e:
+                print(f"Error reading file {file_path}: {e}")
+    else:
+        export_dict['empty'] = 'User has specified "read_export = False" when calling function find_matched_filenames().'
+
+    return export_file_list, export_dict
+
+#### USAGE:
+# eds2txt_match_list, eds2txt_match_dict = find_matched_filenames(base_path, read_export = True)
+# eds2csv_match_list, eds2csv_match_dict = find_matched_filenames(base_path, native_format = '.eds', export_format = '.csv', read_export = True)

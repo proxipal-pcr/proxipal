@@ -6352,77 +6352,6 @@ def extract_instr_params_diomni(files: list[Path]) -> pd.Series:
     return pd.Series(data_dict)
 
 
-# def extract_instr_tables_diomni(any_file: Path) -> dict[str, pd.DataFrame]:
-#     '''
-#     Extracts all data tables from Diomni-format TXT files in a folder.
-#     Normalizes ragged rows to header width.
-#     '''
-#     directory = any_file.parent
-#     txt_files = list(directory.glob("*.txt"))
-
-#     pattern = re.compile(
-#         r"(?P<userfilename>.+)_(?P<datatype>.+)_(?P<timestamp>\d{8}_\d{6})\.txt$"
-#     )
-
-#     groups = {}
-#     for f in txt_files:
-#         m = pattern.match(f.name)
-#         if not m:
-#             continue
-#         ts = m.group("timestamp")
-#         groups.setdefault(ts, []).append((f, m.group("userfilename"), m.group("datatype")))
-
-#     if len(groups) != 1:
-#         print(f"\nFolder: {directory}")
-#         print("Error: Multiple Diomni export groups detected with different timestamps.")
-#         print("Please include only one set of Diomni .txt exports per folder.")
-#         return {}
-
-#     table_dict = {}
-#     group_files = next(iter(groups.values()))
-
-#     for file_path, userfilename, datatype in group_files:
-#         with file_path.open("r", encoding="utf-8") as f:
-#             lines = f.readlines()
-
-#         header_line = next((l for l in lines if l.startswith("# File Name:")), None)
-#         if not header_line:
-#             print(f"Missing '# File Name:' in {file_path.name}")
-#             return {}
-
-#         embedded = Path(header_line.split(":", 1)[1].strip()).stem
-#         if embedded != userfilename:
-#             print(f"Filename mismatch in {file_path.name}")
-#             return {}
-
-#         data_lines = [l for l in lines if not l.strip().startswith("#")]
-#         parsed = [
-#             [c.strip('"') for c in l.rstrip().split("\t")]
-#             for l in data_lines if l.strip()
-#         ]
-
-#         if len(parsed) < 2:
-#             continue
-
-#         header = [h.lower() for h in parsed[0]]
-#         rows = parsed[1:]
-
-#         # ---- FIX: normalize ragged rows ----
-#         width = len(header)
-#         for i, row in enumerate(rows):
-#             if len(row) < width:
-#                 rows[i] = row + [None] * (width - len(row))
-#             elif len(row) > width:
-#                 rows[i] = row[:width]
-#         # -----------------------------------
-
-#         df = pd.DataFrame(rows, columns=header)
-#         df = df.apply(pd.to_numeric, errors="ignore")
-
-#         table_dict[datatype] = df
-
-#     return table_dict
-
 def extract_instr_tables_diomni(any_file: Path) -> dict[str, pd.DataFrame]:
     '''
     Extracts all data tables from Diomni-format TXT files in a folder.
@@ -6493,70 +6422,121 @@ def extract_instr_tables_diomni(any_file: Path) -> dict[str, pd.DataFrame]:
     return table_dict
 
 
+# def merge_diomni_exports_to_txt(files: list[Path]) -> Path | None:
+#     '''
+#     Merges Diomni .txt export files into a synthetic QuantStudio-style .txt file
+#     saved alongside the corresponding .eds file.
 
-def merge_diomni_exports_to_txt(files: list[Path]) -> Path | None:
+#     Parameters
+#     ----------
+#     files : list[Path]
+#         List of Diomni TXT export files that share timestamp and userfilename.
+
+#     Returns
+#     -------
+#     Path | None
+#         Path to new .txt file saved alongside .eds, or None if aborted.
+#     '''
+#     if not files:
+#         return None
+
+#     # Infer userfilename from filename pattern
+#     m = re.match(r"(?P<userfilename>.+)_.+_(\d{8}_\d{6})\.txt$", files[0].name)
+#     if not m:
+#         return None
+#     userfilename = m.group("userfilename")
+
+#     # Locate corresponding .eds using embedded header
+#     eds_path = None
+#     for f in files:
+#         with f.open("r", encoding="utf-8") as fh:
+#             for line in fh:
+#                 if line.startswith("# File Name:"):
+#                     eds_path = Path(line.split(":", 1)[1].strip())
+#                     break
+#         if eds_path:
+#             break
+
+#     if not eds_path or not eds_path.name.endswith(".eds"):
+#         print(f"Cannot locate .eds path for Diomni export group: {userfilename}")
+#         return None
+
+#     # Extract parameters and tables
+#     instr_params = extract_instr_params_diomni(files)
+#     table_dict = extract_instr_tables_diomni(files[0])
+
+#     # Correct emptiness checks
+#     if instr_params.empty or not table_dict:
+#         return None
+
+#     out_path = eds_path.with_suffix(".txt")
+
+#     with out_path.open("w", encoding="utf-8") as out_file:
+#         # Write instrument parameters
+#         for key, val in instr_params.items():
+#             val_str = (
+#                 val.strftime("%m-%d-%Y %H:%M:%S")
+#                 if isinstance(val, datetime)
+#                 else str(val)
+#             )
+#             formatted_key = key.replace("_", " ").title()
+#             out_file.write(f"* {formatted_key} = {val_str}\n")
+
+#         out_file.write("\n")
+
+#         # Write tables
+#         for table_name, df in table_dict.items():
+#             out_file.write(f"[{table_name}]\n")
+#             df.to_csv(out_file, sep="\t", index=False)
+#             out_file.write("\n")
+
+#     return out_path
+
+def merge_diomni_exports_to_txt(files: list[Path], out_path: Path) -> Path | None:
     '''
-    Merges Diomni .txt export files into a synthetic QuantStudio-style .txt file
-    saved alongside the corresponding .eds file.
+    Merges Diomni .txt export files into a synthetic QuantStudio-style .txt file.
 
-    Parameters
-    ----------
-    files : list[Path]
-        List of Diomni TXT export files that share timestamp and userfilename.
-
-    Returns
-    -------
-    Path | None
-        Path to new .txt file saved alongside .eds, or None if aborted.
+    Output location is provided by caller (derived from current filesystem), not from
+    embedded '# File Name:' paths inside exports.
     '''
     if not files:
         return None
 
-    # Infer userfilename from filename pattern
     m = re.match(r"(?P<userfilename>.+)_.+_(\d{8}_\d{6})\.txt$", files[0].name)
     if not m:
         return None
     userfilename = m.group("userfilename")
 
-    # Locate corresponding .eds using embedded header
-    eds_path = None
+    # Non-fatal sanity check only (do not abort on exporter-machine path weirdness)
     for f in files:
-        with f.open("r", encoding="utf-8") as fh:
-            for line in fh:
-                if line.startswith("# File Name:"):
-                    eds_path = Path(line.split(":", 1)[1].strip())
-                    break
-        if eds_path:
-            break
+        try:
+            with f.open("r", encoding="utf-8") as fh:
+                for line in fh:
+                    if line.startswith("# File Name:"):
+                        embedded_stem = Path(line.split(":", 1)[1].strip()).stem
+                        if embedded_stem and embedded_stem != userfilename:
+                            print(f"Warning: embedded filename stem mismatch in {f.name}: embedded={embedded_stem}, expected={userfilename}")
+                        break
+        except Exception:
+            pass
 
-    if not eds_path or not eds_path.name.endswith(".eds"):
-        print(f"Cannot locate .eds path for Diomni export group: {userfilename}")
-        return None
-
-    # Extract parameters and tables
     instr_params = extract_instr_params_diomni(files)
     table_dict = extract_instr_tables_diomni(files[0])
 
-    # Correct emptiness checks
     if instr_params.empty or not table_dict:
         return None
 
-    out_path = eds_path.with_suffix(".txt")
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
 
     with out_path.open("w", encoding="utf-8") as out_file:
-        # Write instrument parameters
         for key, val in instr_params.items():
-            val_str = (
-                val.strftime("%m-%d-%Y %H:%M:%S")
-                if isinstance(val, datetime)
-                else str(val)
-            )
+            val_str = val.strftime("%m-%d-%Y %H:%M:%S") if isinstance(val, datetime) else str(val)
             formatted_key = key.replace("_", " ").title()
             out_file.write(f"* {formatted_key} = {val_str}\n")
 
         out_file.write("\n")
 
-        # Write tables
         for table_name, df in table_dict.items():
             out_file.write(f"[{table_name}]\n")
             df.to_csv(out_file, sep="\t", index=False)
@@ -6565,52 +6545,6 @@ def merge_diomni_exports_to_txt(files: list[Path]) -> Path | None:
     return out_path
 
 
-
-# def build_instr_df(instr_tables_dict: dict, mode: str = 'quantstudio') -> pd.DataFrame:
-#     '''
-#     Flattens instrument table data from extract_instr_tables() or extract_instr_tables_diomni()
-#     into a single DataFrame. Rows are per well. Columns are collapsed lists or scalar values.
-
-#     Parameters
-#     ----------
-#     instr_tables_dict : dict
-#         Dictionary of DataFrames, keyed by table name.
-
-#     mode : str
-#         Either 'quantstudio' or 'diomni'. In 'quantstudio' mode, required tables must be present.
-#         In 'diomni' mode, all available tables are processed dynamically.
-
-#     Returns
-#     -------
-#     pd.DataFrame
-#         Flattened instrument data with one row per well.
-#     '''
-#     if mode == 'quantstudio':
-#         required_keys = ['Raw Data', 'Amplification Data', 'Multicomponent Data']
-#         optional_keys = ['Melt Curve Raw Data']
-#         missing_required = [k for k in required_keys if k not in instr_tables_dict]
-#         if missing_required:
-#             raise KeyError(f"Missing required keys {', '.join(missing_required)}")
-#         present_keys = required_keys + [k for k in optional_keys if k in instr_tables_dict]
-#     elif mode == 'diomni':
-#         present_keys = list(instr_tables_dict.keys())
-#     else:
-#         raise ValueError("mode must be 'quantstudio' or 'diomni'")
-
-#     instr_df = pd.DataFrame()
-
-#     for key in present_keys:
-#         table = instr_tables_dict[key]
-#         for col in table.columns:
-#             if 'well' not in table.columns:
-#                 raise KeyError(f"'well' column missing in table '{key}'")
-#             instr_df[f'{col} (eds; {key.lower()})'] = (
-#                 table.groupby('well')[col]
-#                      .apply(lambda x: x.iloc[0] if x.nunique() == 1 else x.tolist())
-#             )
-
-#     instr_df.reset_index(inplace=True)
-#     return instr_df
 
 def build_instr_df(instr_tables_dict: dict, mode: str = 'quantstudio') -> pd.DataFrame:
     '''
@@ -6774,7 +6708,7 @@ def find_matched_filenames(path: Path, native_format: str = '.eds', export_forma
             for group_path, diomni_files in diomni_groups.items():
                 eds_stem = export_file.stem
                 if eds_stem in str(diomni_files[0]):
-                    result_path = merge_diomni_exports_to_txt(diomni_files)
+                    result_path = merge_diomni_exports_to_txt(diomni_files, export_file)
                     if result_path and result_path.exists():
                         export_file_list[i] = result_path
                     break
