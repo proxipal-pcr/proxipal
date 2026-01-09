@@ -68,8 +68,7 @@ If the script is run **non-interactively**, it defaults to **research mode**.
 
 ## 🔐 4. Research vs Development Mode (Important)
 
-ProxiPal is designed to support collaboration between **coding and non-coding users** by operating on a **shared, predictable directory structure**.  
-Any directory created by the setup script may contain arbitrary file types; ProxiPal will only read and act on files relevant to its functionality.
+ProxiPal is designed to support collaboration between **coding and non-coding users** by operating on a **shared, predictable directory structure**.  Any directory created by the setup script may contain arbitrary file types; ProxiPal will only read and act on files relevant to its functionality.
 
 This structure has two important implications:
 
